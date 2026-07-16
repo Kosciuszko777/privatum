@@ -6,12 +6,12 @@
  * Permission layer with grant/revoke/audit.
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import {
-  ArrowLeft, Plus, FolderPlus, Upload, ChevronLeft, Shield,
-  Lock, FileText, Search, Share2, LayoutGrid, List
+  ArrowLeft, FolderPlus, Upload, ChevronLeft, Shield,
+  Lock, FileText, Search, LayoutGrid, List, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,8 +23,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { VaultFolderCard } from '@/components/vault/VaultFolderCard';
 import { VaultDocumentRow } from '@/components/vault/VaultDocumentRow';
 import { PermissionGrantCard } from '@/components/vault/PermissionGrantCard';
@@ -35,6 +44,7 @@ import {
   demoAccessGrants,
 } from '@/lib/demoData';
 import { toast } from '@/hooks/useToast';
+import type { VaultRetention } from '@/lib/vault';
 
 const Vault = () => {
   const { strings } = useLocale();
@@ -45,7 +55,15 @@ const Vault = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDesc, setNewFolderDesc] = useState('');
 
-  useSeoMeta({ title: 'PRIVATUM — Vault' });
+  // Upload dialog state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadRetention, setUploadRetention] = useState<VaultRetention>('manual');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'encrypting' | 'storing' | 'complete'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useSeoMeta({ title: `PRIVATUM — ${strings.vault.title}` });
 
   const activeFolder = activeFolderId
     ? demoVaultFolders.find((f) => f.id === activeFolderId)
@@ -73,11 +91,60 @@ const Vault = () => {
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
-    toast({ title: `Ordner "${newFolderName}" erstellt.` });
+    toast({ title: `"${newFolderName}" — ${strings.vault.folderCreated}` });
     setCreateFolderOpen(false);
     setNewFolderName('');
     setNewFolderDesc('');
   };
+
+  const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+    }
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+    }
+  }, []);
+
+  const handleUpload = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
+
+    setUploadStatus('encrypting');
+    setUploadProgress(30);
+
+    // Simulate encryption delay
+    await new Promise((r) => setTimeout(r, 800));
+    setUploadProgress(60);
+    setUploadStatus('storing');
+
+    // Simulate storage delay
+    await new Promise((r) => setTimeout(r, 600));
+    setUploadProgress(100);
+    setUploadStatus('complete');
+
+    await new Promise((r) => setTimeout(r, 500));
+    toast({ title: strings.vault.uploadComplete });
+    setUploadDialogOpen(false);
+    setSelectedFiles([]);
+    setUploadProgress(null);
+    setUploadStatus('idle');
+  }, [selectedFiles, strings.vault.uploadComplete]);
+
+  const retentionOptions: { value: VaultRetention; label: string }[] = [
+    { value: 'manual', label: strings.vault.retentionManual },
+    { value: 'after-download', label: strings.vault.retentionAfterDownload },
+    { value: '24h', label: strings.vault.retention24h },
+    { value: '7d', label: strings.vault.retention7d },
+    { value: '30d', label: strings.vault.retention30d },
+    { value: '90d', label: strings.vault.retention90d },
+    { value: '1y', label: strings.vault.retention1y },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,13 +160,17 @@ const Vault = () => {
           <div className="flex items-center gap-2">
             <Lock className="size-5 text-primary" />
             <h1 className="font-sans font-semibold text-foreground">
-              Vault
+              {strings.vault.title}
             </h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="size-4 mr-1" />
+              {strings.vault.uploadFile}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setCreateFolderOpen(true)}>
               <FolderPlus className="size-4 mr-1" />
-              Neuer Ordner
+              {strings.vault.newFolder}
             </Button>
           </div>
         </div>
@@ -110,18 +181,18 @@ const Vault = () => {
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Lock className="size-3.5 text-primary" />
-            <span className="font-medium text-foreground">{allDocuments.length}</span> Dokumente
+            <span className="font-medium text-foreground">{allDocuments.length}</span> {strings.vault.documents}
           </span>
           <span>·</span>
           <span>
-            <span className="font-medium text-foreground">{demoVaultFolders.length}</span> Ordner
+            <span className="font-medium text-foreground">{demoVaultFolders.length}</span> {strings.vault.folders}
           </span>
           <span>·</span>
           <span>
-            <span className="font-medium text-foreground">{formatSize(totalSize)}</span> verschlüsselt
+            <span className="font-medium text-foreground">{formatSize(totalSize)}</span> {strings.vault.encrypted}
           </span>
           <span className="ml-auto text-xs">
-            Alle Daten sind clientseitig verschlüsselt.
+            {strings.vault.allEncrypted}
           </span>
         </div>
 
@@ -129,11 +200,11 @@ const Vault = () => {
           <TabsList>
             <TabsTrigger value="documents">
               <FileText className="size-4 mr-1.5" />
-              Dokumente
+              {strings.vault.documents}
             </TabsTrigger>
             <TabsTrigger value="permissions">
               <Shield className="size-4 mr-1.5" />
-              Berechtigungen
+              {strings.vault.permissions}
             </TabsTrigger>
           </TabsList>
 
@@ -143,7 +214,7 @@ const Vault = () => {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
-                  placeholder={strings.common.search + ' …'}
+                  placeholder={strings.vault.searchPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -177,12 +248,12 @@ const Vault = () => {
                   className="text-primary hover:underline flex items-center gap-1"
                 >
                   <ChevronLeft className="size-3" />
-                  Vault
+                  {strings.vault.title}
                 </button>
                 <span className="text-muted-foreground">/</span>
                 <span className="font-medium text-foreground">{activeFolder?.name}</span>
                 <Badge variant="outline" className="text-[10px] ml-1">
-                  {documentsInFolder.length} Dokumente
+                  {documentsInFolder.length} {strings.vault.documents}
                 </Badge>
               </div>
             )}
@@ -191,22 +262,22 @@ const Vault = () => {
             {searchQuery && (
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground mb-3">
-                  {filteredDocuments.length} Ergebnis{filteredDocuments.length !== 1 ? 'se' : ''} für „{searchQuery}"
+                  {filteredDocuments.length} {strings.vault.resultsFor} &ldquo;{searchQuery}&rdquo;
                 </p>
                 {filteredDocuments.map((doc) => (
                   <VaultDocumentRow
                     key={doc.id}
                     document={doc}
-                    onView={() => toast({ title: `Dokument wird entschlüsselt: ${doc.filename}` })}
-                    onDownload={() => toast({ title: `Download: ${doc.filename}` })}
-                    onShare={() => toast({ title: 'Zugriff teilen …' })}
-                    onDelete={() => toast({ title: `${doc.filename} wird sicher gelöscht.`, variant: 'destructive' })}
+                    onView={() => toast({ title: `${strings.vault.decrypting}: ${doc.filename}` })}
+                    onDownload={() => toast({ title: `${strings.vault.downloading}: ${doc.filename}` })}
+                    onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
+                    onDelete={() => toast({ title: `${doc.filename} ${strings.vault.deleting}`, variant: 'destructive' })}
                   />
                 ))}
                 {filteredDocuments.length === 0 && (
                   <Card className="border-dashed">
                     <CardContent className="py-12 text-center">
-                      <p className="text-muted-foreground">Keine Dokumente gefunden.</p>
+                      <p className="text-muted-foreground">{strings.vault.noDocuments}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -221,9 +292,9 @@ const Vault = () => {
                     key={folder.id}
                     folder={folder}
                     onClick={() => setActiveFolderId(folder.id)}
-                    onRename={() => toast({ title: 'Umbenennen …' })}
-                    onDelete={() => toast({ title: `Ordner "${folder.name}" wird gelöscht.`, variant: 'destructive' })}
-                    onShare={() => toast({ title: 'Zugriff teilen …' })}
+                    onRename={() => toast({ title: `${strings.vault.rename} …` })}
+                    onDelete={() => toast({ title: `"${folder.name}" — ${strings.vault.folderDeleted}`, variant: 'destructive' })}
+                    onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
                   />
                 ))}
               </div>
@@ -235,14 +306,23 @@ const Vault = () => {
                 {activeFolder?.description && (
                   <p className="text-sm text-muted-foreground mb-4">{activeFolder.description}</p>
                 )}
+
+                {/* Upload button in folder context */}
+                <div className="mb-4">
+                  <Button size="sm" variant="outline" onClick={() => setUploadDialogOpen(true)}>
+                    <Plus className="size-4 mr-1" />
+                    {strings.vault.uploadFile}
+                  </Button>
+                </div>
+
                 {documentsInFolder.map((doc) => (
                   <VaultDocumentRow
                     key={doc.id}
                     document={doc}
-                    onView={() => toast({ title: `Entschlüsseln: ${doc.filename}` })}
-                    onDownload={() => toast({ title: `Download: ${doc.filename}` })}
-                    onShare={() => toast({ title: 'Zugriff teilen …' })}
-                    onDelete={() => toast({ title: `${doc.filename} wird sicher gelöscht.`, variant: 'destructive' })}
+                    onView={() => toast({ title: `${strings.vault.decrypting}: ${doc.filename}` })}
+                    onDownload={() => toast({ title: `${strings.vault.downloading}: ${doc.filename}` })}
+                    onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
+                    onDelete={() => toast({ title: `${doc.filename} ${strings.vault.deleting}`, variant: 'destructive' })}
                   />
                 ))}
                 {documentsInFolder.length === 0 && (
@@ -250,7 +330,7 @@ const Vault = () => {
                     <CardContent className="py-12 text-center">
                       <Upload className="size-8 text-muted-foreground mx-auto mb-3" />
                       <p className="text-muted-foreground">
-                        Dieser Ordner ist leer. Verschieben Sie Dokumente aus dem Posteingang hierher.
+                        {strings.vault.folderEmpty}
                       </p>
                     </CardContent>
                   </Card>
@@ -264,10 +344,10 @@ const Vault = () => {
               <CardHeader>
                 <CardTitle className="font-sans text-base flex items-center gap-2">
                   <Shield className="size-4" />
-                  Erteilte Zugriffsberechtigungen
+                  {strings.vault.grantedPermissions}
                 </CardTitle>
                 <CardDescription>
-                  Kryptographisch signierte Zugriffserteilungen. Widerruf ist real: Schlüssel werden rotiert, Berechtigungen verfallen.
+                  {strings.vault.grantedPermissionsDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -277,7 +357,7 @@ const Vault = () => {
                     grant={grant}
                     onRevoke={
                       grant.status === 'active'
-                        ? () => toast({ title: `Zugriff für "${grant.grantedName}" widerrufen.` })
+                        ? () => toast({ title: `${strings.vault.revokedFor} "${grant.grantedName}" ${strings.vault.revoked}` })
                         : undefined
                     }
                   />
@@ -288,23 +368,23 @@ const Vault = () => {
             {/* Permission verbs reference */}
             <Card className="border-border bg-secondary/20">
               <CardContent className="p-6">
-                <h3 className="font-sans font-medium text-sm text-foreground mb-3">Berechtigungsstufen</h3>
+                <h3 className="font-sans font-medium text-sm text-foreground mb-3">{strings.vault.permissionLevels}</h3>
                 <div className="grid sm:grid-cols-2 gap-3 text-xs text-muted-foreground">
                   <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-[10px] shrink-0">Ansehen</Badge>
-                    <span>Empfänger kann das Dokument im Browser entschlüsseln und anzeigen.</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{strings.vault.permView}</Badge>
+                    <span>{strings.vault.permViewDesc}</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-[10px] shrink-0">Herunterladen</Badge>
-                    <span>Empfänger kann das entschlüsselte Dokument lokal speichern.</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{strings.vault.permDownload}</Badge>
+                    <span>{strings.vault.permDownloadDesc}</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-[10px] shrink-0">Weiterleiten</Badge>
-                    <span>Empfänger kann den verschlüsselten Zugriff an Dritte übertragen.</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{strings.vault.permForward}</Badge>
+                    <span>{strings.vault.permForwardDesc}</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-[10px] shrink-0">Delegieren</Badge>
-                    <span>Empfänger kann selbst Berechtigungen an andere erteilen.</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{strings.vault.permDelegate}</Badge>
+                    <span>{strings.vault.permDelegateDesc}</span>
                   </div>
                 </div>
               </CardContent>
@@ -317,24 +397,27 @@ const Vault = () => {
       <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neuer Vault-Ordner</DialogTitle>
+            <DialogTitle>{strings.vault.newVaultFolder}</DialogTitle>
+            <DialogDescription>
+              {strings.vault.allEncrypted}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Name</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">{strings.vault.folderName}</label>
               <Input
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Nachlasssache Müller"
+                placeholder={strings.vault.folderNamePlaceholder}
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Beschreibung (optional)</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">{strings.vault.folderDescription}</label>
               <Input
                 value={newFolderDesc}
                 onChange={(e) => setNewFolderDesc(e.target.value)}
-                placeholder="Erbschaftsangelegenheiten Familie Müller"
+                placeholder={strings.vault.folderDescPlaceholder}
               />
             </div>
           </div>
@@ -344,8 +427,131 @@ const Vault = () => {
             </Button>
             <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
               <FolderPlus className="size-4 mr-1" />
-              Ordner erstellen
+              {strings.vault.createFolder}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+        if (!open && uploadStatus === 'idle') {
+          setUploadDialogOpen(false);
+          setSelectedFiles([]);
+        } else if (!open && uploadStatus === 'complete') {
+          setUploadDialogOpen(false);
+          setSelectedFiles([]);
+          setUploadProgress(null);
+          setUploadStatus('idle');
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{strings.vault.uploadTitle}</DialogTitle>
+            <DialogDescription>
+              {strings.vault.allEncrypted}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Drop zone */}
+            {selectedFiles.length === 0 && uploadStatus === 'idle' && (
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleFileDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="size-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {strings.vault.uploadDragDrop}
+                </p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                  {strings.vault.uploadSelectFiles}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
+            )}
+
+            {/* Selected files */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                {selectedFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                    <FileText className="size-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatSize(file.size)}</p>
+                    </div>
+                    {uploadStatus === 'idle' && (
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Retention policy */}
+            {uploadStatus === 'idle' && selectedFiles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  {strings.vault.retentionPolicy}
+                </label>
+                <Select value={uploadRetention} onValueChange={(v) => setUploadRetention(v as VaultRetention)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {retentionOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Progress */}
+            {uploadProgress !== null && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {uploadStatus === 'encrypting' && strings.vault.uploadEncrypting}
+                    {uploadStatus === 'storing' && strings.vault.uploadStoring}
+                    {uploadStatus === 'complete' && strings.vault.uploadComplete}
+                  </span>
+                  <span className="font-medium text-foreground">{uploadProgress}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {uploadStatus === 'idle' && (
+              <>
+                <Button variant="outline" onClick={() => { setUploadDialogOpen(false); setSelectedFiles([]); }}>
+                  {strings.common.cancel}
+                </Button>
+                <Button onClick={handleUpload} disabled={selectedFiles.length === 0}>
+                  <Lock className="size-4 mr-1" />
+                  {strings.vault.uploadTitle}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

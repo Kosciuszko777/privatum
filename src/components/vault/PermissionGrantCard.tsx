@@ -1,6 +1,7 @@
 import { Shield, Clock, XCircle, Eye, Download, Forward, UserCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/hooks/useLocale';
 import type { DemoAccessGrant } from '@/lib/demoData';
 import { cn } from '@/lib/utils';
 
@@ -16,15 +17,16 @@ const verbIcons: Record<string, typeof Eye> = {
   delegate: UserCog,
 };
 
-const verbLabels: Record<string, string> = {
-  view: 'Ansehen',
-  download: 'Herunterladen',
-  forward: 'Weiterleiten',
-  delegate: 'Delegieren',
-  revoke: 'Widerrufen',
-};
-
 export function PermissionGrantCard({ grant, onRevoke }: PermissionGrantCardProps) {
+  const { strings } = useLocale();
+
+  const verbLabels: Record<string, string> = {
+    view: strings.vault.permView,
+    download: strings.vault.permDownload,
+    forward: strings.vault.permForward,
+    delegate: strings.vault.permDelegate,
+  };
+
   return (
     <div className={cn(
       'flex items-start gap-4 p-4 rounded-lg border border-border',
@@ -45,18 +47,18 @@ export function PermissionGrantCard({ grant, onRevoke }: PermissionGrantCardProp
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-medium text-foreground">{grant.grantedName}</span>
           {grant.status === 'active' && (
-            <Badge variant="outline" className="text-[10px] text-green-700 border-green-300">Aktiv</Badge>
+            <Badge variant="outline" className="text-[10px] text-green-700 border-green-300">{strings.vault.active}</Badge>
           )}
           {grant.status === 'expired' && (
-            <Badge variant="secondary" className="text-[10px]">Abgelaufen</Badge>
+            <Badge variant="secondary" className="text-[10px]">{strings.vault.expired}</Badge>
           )}
           {grant.status === 'revoked' && (
-            <Badge variant="secondary" className="text-[10px] text-destructive">Widerrufen</Badge>
+            <Badge variant="secondary" className="text-[10px] text-destructive">{strings.vault.revokedStatus}</Badge>
           )}
         </div>
 
         <p className="text-xs text-muted-foreground mb-2">
-          Zugriff auf: {grant.targetName}
+          {strings.vault.accessTo}: {grant.targetName}
         </p>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -72,11 +74,11 @@ export function PermissionGrantCard({ grant, onRevoke }: PermissionGrantCardProp
         </div>
 
         <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-          <span>Erteilt: {grant.createdAt}</span>
+          <span>{strings.vault.grantedAt}: {grant.createdAt}</span>
           {grant.expiresAt && (
             <span className="flex items-center gap-0.5">
               <Clock className="size-2.5" />
-              Ablauf: {grant.expiresAt}
+              {strings.vault.expiresAt}: {grant.expiresAt}
             </span>
           )}
         </div>
@@ -88,7 +90,7 @@ export function PermissionGrantCard({ grant, onRevoke }: PermissionGrantCardProp
           size="icon-xs"
           className="text-destructive/60 hover:text-destructive shrink-0"
           onClick={onRevoke}
-          title="Zugriff widerrufen"
+          title={strings.vault.revokeAccess}
         >
           <XCircle className="size-4" />
         </Button>

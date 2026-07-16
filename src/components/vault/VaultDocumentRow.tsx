@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useLocale } from '@/hooks/useLocale';
 import type { DemoVaultDocument } from '@/lib/demoData';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,8 @@ interface VaultDocumentRowProps {
 }
 
 export function VaultDocumentRow({ document, onView, onDownload, onShare, onDelete }: VaultDocumentRowProps) {
+  const { strings } = useLocale();
+
   const formatSize = (bytes: number) => {
     if (bytes >= 1000000) return `${(bytes / 1000000).toFixed(1)} MB`;
     return `${(bytes / 1000).toFixed(0)} KB`;
@@ -38,9 +41,9 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
 
   const sourceLabel = () => {
     switch (document.source) {
-      case 'inbox': return document.senderName || 'Posteingang';
-      case 'upload': return 'Manuell hochgeladen';
-      case 'secure-link': return document.senderName || 'Sicherer Link';
+      case 'inbox': return document.senderName || strings.vault.inbox;
+      case 'upload': return strings.vault.manualUpload;
+      case 'secure-link': return document.senderName || strings.vault.secureLink;
     }
   };
 
@@ -61,7 +64,7 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
           {document.status === 'pending-deletion' && (
             <Badge variant="outline" className="text-[10px] shrink-0">
               <Clock className="size-2.5 mr-0.5" />
-              Löschung
+              {strings.vault.pendingDeletion}
             </Badge>
           )}
         </div>
@@ -92,12 +95,12 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         {onView && (
-          <Button variant="ghost" size="icon-xs" onClick={onView} title="Ansehen">
+          <Button variant="ghost" size="icon-xs" onClick={onView} title={strings.vault.permView}>
             <Eye className="size-3.5" />
           </Button>
         )}
         {onDownload && (
-          <Button variant="ghost" size="icon-xs" onClick={onDownload} title="Herunterladen">
+          <Button variant="ghost" size="icon-xs" onClick={onDownload} title={strings.common.download}>
             <Download className="size-3.5" />
           </Button>
         )}
@@ -111,19 +114,19 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
             {onView && (
               <DropdownMenuItem onSelect={onView}>
                 <Eye className="size-4" />
-                Ansehen
+                {strings.vault.permView}
               </DropdownMenuItem>
             )}
             {onDownload && (
               <DropdownMenuItem onSelect={onDownload}>
                 <Download className="size-4" />
-                Herunterladen
+                {strings.common.download}
               </DropdownMenuItem>
             )}
             {onShare && (
               <DropdownMenuItem onSelect={onShare}>
                 <Share2 className="size-4" />
-                Zugriff teilen
+                {strings.vault.shareAccess}
               </DropdownMenuItem>
             )}
             {onDelete && (
@@ -131,7 +134,7 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={onDelete} variant="destructive">
                   <Trash2 className="size-4" />
-                  Sicher löschen
+                  {strings.vault.secureDelete}
                 </DropdownMenuItem>
               </>
             )}

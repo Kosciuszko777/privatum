@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/hooks/useLocale';
 import type { DemoVaultFolder } from '@/lib/demoData';
 
 interface VaultFolderCardProps {
@@ -18,6 +19,8 @@ interface VaultFolderCardProps {
 }
 
 export function VaultFolderCard({ folder, onClick, onRename, onDelete, onShare }: VaultFolderCardProps) {
+  const { strings } = useLocale();
+
   const formatSize = (bytes: number) => {
     if (bytes >= 1000000000) return `${(bytes / 1000000000).toFixed(1)} GB`;
     if (bytes >= 1000000) return `${(bytes / 1000000).toFixed(1)} MB`;
@@ -51,19 +54,19 @@ export function VaultFolderCard({ folder, onClick, onRename, onDelete, onShare }
                     {onShare && (
                       <DropdownMenuItem onSelect={onShare}>
                         <Share2 className="size-4" />
-                        Zugriff teilen
+                        {strings.vault.shareAccess}
                       </DropdownMenuItem>
                     )}
                     {onRename && (
                       <DropdownMenuItem onSelect={onRename}>
                         <Pencil className="size-4" />
-                        Umbenennen
+                        {strings.vault.rename}
                       </DropdownMenuItem>
                     )}
                     {onDelete && (
                       <DropdownMenuItem onSelect={onDelete} variant="destructive">
                         <Trash2 className="size-4" />
-                        Löschen
+                        {strings.common.delete}
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>

@@ -177,7 +177,7 @@ const Dashboard = () => {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <Lock className="size-4" />
-            <span>Vault</span>
+            <span>{strings.vault.title}</span>
             <ChevronRight className="size-3 ml-auto" />
           </Link>
           <Link
@@ -571,7 +571,7 @@ const Dashboard = () => {
                 <Button size="sm" asChild>
                   <Link to="/vault">
                     <Lock className="size-4 mr-1" />
-                    Vault öffnen
+                    {strings.vault.openVault}
                   </Link>
                 </Button>
               </div>
@@ -581,19 +581,19 @@ const Dashboard = () => {
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
                     <p className="text-2xl font-serif font-bold text-foreground">12</p>
-                    <p className="text-xs text-muted-foreground">Verschlüsselte Dokumente</p>
+                    <p className="text-xs text-muted-foreground">{strings.vault.encryptedDocuments}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
                     <p className="text-2xl font-serif font-bold text-foreground">3</p>
-                    <p className="text-xs text-muted-foreground">Ordner / Mandate</p>
+                    <p className="text-xs text-muted-foreground">{strings.vault.foldersMatters}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
                     <p className="text-2xl font-serif font-bold text-foreground">2</p>
-                    <p className="text-xs text-muted-foreground">Aktive Berechtigungen</p>
+                    <p className="text-xs text-muted-foreground">{strings.vault.activePermissions}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -604,14 +604,13 @@ const Dashboard = () => {
                     <Lock className="size-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-foreground">Vault — Verschlüsselter Dokumentenspeicher</p>
+                    <p className="font-medium text-foreground">{strings.vault.vaultDesc}</p>
                     <p className="text-sm text-muted-foreground">
-                      Mandate, Fälle und Ordner mit clientseitiger Verschlüsselung.
-                      Kryptographische Zugriffsberechtigungen mit Widerruf.
+                      {strings.vault.vaultSubDesc}
                     </p>
                   </div>
                   <Button asChild variant="outline">
-                    <Link to="/vault">Öffnen</Link>
+                    <Link to="/vault">{strings.vault.openVault}</Link>
                   </Button>
                 </CardContent>
               </Card>
