@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { useParams } from 'react-router-dom';
 import {
-  Upload, Shield, Lock, FileText, X, ArrowRight, Loader2
+  Upload, Shield, Lock, FileText, X, ArrowRight, Loader2, Check, Copy
 } from 'lucide-react';
 import { VerificationBadge } from '@/components/profile/VerificationBadge';
 import type { VerificationTier } from '@/lib/signer';
@@ -13,6 +13,8 @@ import { Progress } from '@/components/ui/progress';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useLocale } from '@/hooks/useLocale';
 import { annaMeier } from '@/lib/demoData';
+import { encryptFile, hashFile } from '@/lib/cryptvault';
+import { createChainEntry, storeChain, loadChain, getLatestHash } from '@/lib/hashchain';
 import { cn } from '@/lib/utils';
 
 interface SelectedFile {
@@ -93,22 +95,65 @@ const SecureUpload = () => {
     }
   };
 
+  // Store hashes for receipt display
+  const [fileHashes, setFileHashes] = useState<string[]>([]);
+  const [chainHash, setChainHash] = useState('');
+
   const handleSubmit = async () => {
     if (files.length === 0) return;
 
-    // Simulate encryption
     setUploadState('encrypting');
     setProgress(0);
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise((r) => setTimeout(r, 50));
-      setProgress(i);
+
+    const hashes: string[] = [];
+    const channelId = `inbox-${handle || 'anonymous'}`;
+    const totalFiles = files.length;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i].file;
+      const basePct = (i / totalFiles) * 100;
+      const filePct = 100 / totalFiles;
+
+      // Read file
+      const plaintext = await file.arrayBuffer();
+
+      // Hash plaintext (real SHA-256)
+      setProgress(Math.round(basePct + filePct * 0.2));
+      const plaintextHash = await hashFile(plaintext);
+      hashes.push(plaintextHash);
+
+      // Encrypt (real AES-256-GCM)
+      setProgress(Math.round(basePct + filePct * 0.6));
+      await encryptFile(plaintext);
+
+      // Record in hash chain
+      const chain = loadChain(channelId);
+      const previousHash = getLatestHash(chain);
+      const entry = await createChainEntry({
+        documentHash: plaintextHash,
+        channelId,
+        direction: 'inbound',
+        previousHash,
+        filename: file.name,
+        fileSize: file.size,
+      });
+      chain.push(entry);
+      storeChain(channelId, chain);
+
+      if (i === files.length - 1) {
+        setChainHash(entry.entryHash);
+      }
+
+      setProgress(Math.round(basePct + filePct));
     }
 
-    // Simulate upload
+    setFileHashes(hashes);
+
+    // Simulate upload transmission
     setUploadState('uploading');
     setProgress(0);
-    for (let i = 0; i <= 100; i += 3) {
-      await new Promise((r) => setTimeout(r, 40));
+    for (let i = 0; i <= 100; i += 4) {
+      await new Promise((r) => setTimeout(r, 30));
       setProgress(i);
     }
 
@@ -327,19 +372,49 @@ const SecureUpload = () => {
                   {strings.upload.delivered}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {files.length} {files.length === 1 ? 'Dokument' : 'Dokumente'} an {professional.name}
+                  {files.length} {files.length === 1 ? strings.dashboard.document : strings.dashboard.documentsPlural} → {professional.name}
                 </p>
               </div>
 
-              {/* Receipt */}
-              <div className="bg-secondary/50 rounded-lg p-4 text-left space-y-2">
-                <p className="text-xs font-medium text-foreground">Zustellungsbeleg</p>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Transfer-ID: PRV-2026-07-15-001</p>
-                  <p className="text-xs text-muted-foreground">Zeitstempel: {new Date().toISOString()}</p>
-                  <p className="text-xs text-muted-foreground font-mono break-all">
-                    Integritätshash: a3f8c2d1e5b7...4f9a
-                  </p>
+              {/* Cryptographic receipt */}
+              <div className="bg-secondary/50 rounded-lg p-4 text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <Shield className="size-4 text-primary" />
+                  <p className="text-xs font-medium text-foreground">{strings.audit.title}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-24 shrink-0">{strings.audit.timestamp}</span>
+                    <span className="text-xs font-mono text-foreground">{new Date().toISOString()}</span>
+                  </div>
+                  {fileHashes.map((hash, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-24 shrink-0">SHA-256 #{i + 1}</span>
+                      <code className="text-[10px] font-mono text-foreground bg-secondary px-1.5 py-0.5 rounded truncate flex-1 min-w-0">
+                        {hash}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(hash)}
+                        className="shrink-0 p-1 hover:bg-secondary rounded"
+                      >
+                        <Copy className="size-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  ))}
+                  {chainHash && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-border">
+                      <span className="text-xs text-muted-foreground w-24 shrink-0">{strings.audit.entryHash}</span>
+                      <code className="text-[10px] font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded truncate flex-1 min-w-0">
+                        {chainHash}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(chainHash)}
+                        className="shrink-0 p-1 hover:bg-secondary rounded"
+                      >
+                        <Copy className="size-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

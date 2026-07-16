@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { QRCodeCanvas } from '@/components/ui/qrcode';
 import { useLocale } from '@/hooks/useLocale';
 
 type Step = 'configure' | 'created';
@@ -28,6 +30,7 @@ const CreateSecureLink = () => {
   const [requireId, setRequireId] = useState(false);
   const [allowReplies, setAllowReplies] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const demoLink = 'https://privatum.ch/drop/xK9mP2vQ';
   const demoAccessCode = '847291';
@@ -270,7 +273,7 @@ const CreateSecureLink = () => {
                 <Copy className="size-4 mr-2" />
                 {strings.secureLink.copyLink}
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={() => setQrOpen(true)}>
                 <QrCode className="size-4 mr-2" />
                 {strings.secureLink.showQR}
               </Button>
@@ -295,6 +298,29 @@ const CreateSecureLink = () => {
           </div>
         )}
       </main>
+
+      {/* QR Code dialog */}
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center">{strings.secureLink.showQR}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="bg-white p-4 rounded-xl">
+              <QRCodeCanvas value={demoLink} size={200} level="H" />
+            </div>
+            <code className="text-xs text-muted-foreground font-mono break-all text-center px-4">
+              {demoLink}
+            </code>
+            {accessCodeEnabled && (
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">{strings.secureLink.accessCode}</p>
+                <code className="text-lg font-mono font-bold tracking-widest text-foreground">{demoAccessCode}</code>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -25,10 +25,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useLocale } from '@/hooks/useLocale';
+import { useVault } from '@/hooks/useVault';
+import { useAuditChain } from '@/hooks/useAuditChain';
 import { dashboardStats } from '@/lib/demoData';
 
 const PrivacyDashboard = () => {
   const { strings } = useLocale();
+  const vault = useVault();
+  const auditChain = useAuditChain();
   const [panicDialogOpen, setPanicDialogOpen] = useState(false);
   const [panicConfirm, setPanicConfirm] = useState('');
 
@@ -79,20 +83,27 @@ const PrivacyDashboard = () => {
           <CardHeader>
             <CardTitle className="font-sans text-base flex items-center gap-2">
               <Database className="size-4" />
-              Verschlüsselter Speicher
+              {strings.audit.privacyEncryptedStorage}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Belegt</span>
+                <span className="text-muted-foreground">{strings.audit.privacyUsed}</span>
                 <span className="font-medium text-foreground">
                   {dashboardStats.storageUsed} / {dashboardStats.storageTotal}
                 </span>
               </div>
               <Progress value={dashboardStats.storagePercent} className="h-2" />
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{vault.stats.documentCount} {strings.vault.documents}</span>
+                <span>·</span>
+                <span>{vault.stats.folderCount} {strings.vault.folders}</span>
+                <span>·</span>
+                <span>{auditChain.stats.totalEntries} {strings.audit.entries}</span>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Alle gespeicherten Dokumente sind clientseitig verschlüsselt. Privatum kann den Inhalt nicht lesen.
+                {strings.vault.allEncrypted}
               </p>
             </div>
           </CardContent>
@@ -103,10 +114,10 @@ const PrivacyDashboard = () => {
           <CardHeader>
             <CardTitle className="font-sans text-base flex items-center gap-2">
               <Clock className="size-4" />
-              Geplante Löschungen
+              {strings.audit.privacyScheduledDeletions}
             </CardTitle>
             <CardDescription>
-              Dokumente, die automatisch gelöscht werden.
+              {strings.audit.privacyScheduledDeletionsDesc}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -133,7 +144,7 @@ const PrivacyDashboard = () => {
           <CardHeader>
             <CardTitle className="font-sans text-base flex items-center gap-2">
               <LinkIcon className="size-4" />
-              Abgelaufene Links
+              {strings.audit.privacyExpiredLinks}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -157,10 +168,10 @@ const PrivacyDashboard = () => {
           <CardHeader>
             <CardTitle className="font-sans text-base flex items-center gap-2">
               <Shield className="size-4" />
-              Aufbewahrte Metadaten
+              {strings.audit.privacyMetadataRetained}
             </CardTitle>
             <CardDescription>
-              Privatum speichert nur minimale Metadaten. Dokumenteninhalte sind nie Teil davon.
+              {strings.audit.privacyMetadataRetainedDesc}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -182,10 +193,10 @@ const PrivacyDashboard = () => {
         <div className="bg-primary/5 border border-primary/10 rounded-xl p-6 text-center">
           <Shield className="size-8 text-primary mx-auto mb-3" />
           <p className="text-sm text-foreground font-medium mb-1">
-            Privatum ist darauf ausgelegt, so wenig Informationen wie nötig zu speichern, so kurz wie nötig.
+            {strings.audit.privacyDataMinStatement}
           </p>
           <p className="text-xs text-muted-foreground">
-            Dokumenteninhalte werden verschlüsselt, bevor sie unsere Infrastruktur erreichen. Wir können sie nicht lesen.
+            {strings.audit.privacyDataMinSubtext}
           </p>
         </div>
 
@@ -194,11 +205,10 @@ const PrivacyDashboard = () => {
           <CardHeader>
             <CardTitle className="font-sans text-base flex items-center gap-2 text-destructive">
               <Trash2 className="size-4" />
-              Notfall-Löschung
+              {strings.audit.privacyPanicDelete}
             </CardTitle>
             <CardDescription>
-              Löscht alle verschlüsselten Dokumente und Metadaten unwiderruflich.
-              Diese Aktion kann nicht rückgängig gemacht werden.
+              {strings.audit.privacyPanicDeleteDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -208,7 +218,7 @@ const PrivacyDashboard = () => {
               className="w-full"
             >
               <Trash2 className="size-4 mr-2" />
-              Alle Daten unwiderruflich löschen
+              {strings.audit.privacyPanicDeleteBtn}
             </Button>
           </CardContent>
         </Card>
@@ -220,23 +230,22 @@ const PrivacyDashboard = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="size-5" />
-              Notfall-Löschung bestätigen
+              {strings.audit.privacyPanicConfirmTitle}
             </DialogTitle>
             <DialogDescription>
-              Diese Aktion löscht unwiderruflich alle verschlüsselten Dokumente, Metadaten,
-              Sichere Links und Aktivitätsprotokolle. Sie kann nicht rückgängig gemacht werden.
+              {strings.audit.privacyPanicConfirmDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-foreground">
-              Geben Sie <span className="font-mono font-bold">LÖSCHEN</span> ein, um zu bestätigen:
+              {strings.audit.privacyPanicConfirmPrompt}
             </p>
             <input
               type="text"
               value={panicConfirm}
               onChange={(e) => setPanicConfirm(e.target.value)}
               className="w-full px-3 py-2 rounded-md border border-input bg-transparent text-sm font-mono"
-              placeholder="LÖSCHEN"
+              placeholder={strings.audit.privacyPanicConfirmWord}
               autoComplete="off"
             />
           </div>
@@ -246,7 +255,7 @@ const PrivacyDashboard = () => {
             </Button>
             <Button
               variant="destructive"
-              disabled={panicConfirm !== 'LÖSCHEN'}
+              disabled={panicConfirm !== strings.audit.privacyPanicConfirmWord}
               onClick={() => {
                 // In production: clear all localStorage, clear IndexedDB, revoke all sessions
                 localStorage.clear();
@@ -256,7 +265,7 @@ const PrivacyDashboard = () => {
               }}
             >
               <Trash2 className="size-4 mr-2" />
-              Unwiderruflich löschen
+              {strings.audit.privacyPanicConfirmBtn}
             </Button>
           </DialogFooter>
         </DialogContent>

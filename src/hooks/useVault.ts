@@ -15,6 +15,7 @@ import {
 } from '@/lib/vault';
 import { encryptFile, hashFile, arrayBufferToBase64 } from '@/lib/cryptvault';
 import { getStorageDriver } from '@/lib/storage';
+import { createChainEntry, storeChain, loadChain, getLatestHash } from '@/lib/hashchain';
 import { demoVaultFolders, demoVaultDocuments, demoAccessGrants } from '@/lib/demoData';
 import type { DemoVaultFolder, DemoVaultDocument, DemoAccessGrant } from '@/lib/demoData';
 
@@ -227,6 +228,21 @@ export function useVault() {
       };
 
       results.push(doc);
+
+      // 6. Record in hash chain for audit trail
+      const chain = loadChain('vault');
+      const previousHash = getLatestHash(chain);
+      const chainEntry = await createChainEntry({
+        documentHash: plaintextHash,
+        channelId: 'vault',
+        direction: 'inbound',
+        previousHash,
+        filename: file.name,
+        fileSize: file.size,
+      });
+      chain.push(chainEntry);
+      storeChain('vault', chain);
+
       onProgress?.('storing', Math.round(basePct + filePct * 0.9));
     }
 
@@ -248,7 +264,7 @@ export function useVault() {
 
   // ─── Move inbox delivery to vault ───────────────────────────────
 
-  const moveDeliveryToVault = useCallback((
+  const moveDeliveryToVault = useCallback(async (
     delivery: { senderName: string; files: { name: string; size: number }[] },
     folderId: string,
     retention: VaultRetention,
@@ -283,6 +299,22 @@ export function useVault() {
     );
     saveFolders(updatedFolders);
     setFolders(updatedFolders);
+
+    // Record in hash chain
+    for (const file of delivery.files) {
+      const chain = loadChain('vault');
+      const previousHash = getLatestHash(chain);
+      const entry = await createChainEntry({
+        documentHash: `inbox-${delivery.senderName}-${file.name}`,
+        channelId: 'vault',
+        direction: 'inbound',
+        previousHash,
+        filename: file.name,
+        fileSize: file.size,
+      });
+      chain.push(entry);
+      storeChain('vault', chain);
+    }
 
     return newDocs;
   }, [documents, folders]);

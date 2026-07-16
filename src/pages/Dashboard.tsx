@@ -20,6 +20,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useVault } from '@/hooks/useVault';
+import { useAuditChain } from '@/hooks/useAuditChain';
 import {
   annaMeier,
   demoDeliveries,
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const login = useLoginActions();
   const navigate = useNavigate();
   const vault = useVault();
+  const auditChain = useAuditChain();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moveToVaultDelivery, setMoveToVaultDelivery] = useState<DemoDelivery | null>(null);
@@ -184,6 +186,14 @@ const Dashboard = () => {
           >
             <Lock className="size-4" />
             <span>{strings.vault.title}</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
+          <Link
+            to="/audit"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Shield className="size-4" />
+            <span>{strings.audit.title}</span>
             <ChevronRight className="size-3 ml-auto" />
           </Link>
           <Link
@@ -534,9 +544,38 @@ const Dashboard = () => {
           {/* Activity tab */}
           {activeTab === 'activity' && (
             <div className="space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
-              <h2 className="text-xl font-serif font-semibold text-foreground">{strings.dashboard.activity}</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-serif font-semibold text-foreground">{strings.dashboard.activity}</h2>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/audit">
+                    <Shield className="size-4 mr-1" />
+                    {strings.audit.title}
+                  </Link>
+                </Button>
+              </div>
               <Card className="border-border">
                 <CardContent className="p-6 space-y-4">
+                  {/* Real chain entries first */}
+                  {[...auditChain.entries].reverse().slice(0, 10).map((entry) => (
+                    <div key={entry.entryHash} className="flex items-start gap-4 py-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Lock className="size-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground">
+                          {entry.direction === 'inbound' ? strings.audit.eventEncrypt : strings.audit.eventDownload}
+                          {entry.filename && `: ${entry.filename}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(entry.timestamp * 1000).toLocaleString('de-CH')}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
+                        {entry.entryHash.slice(0, 8)}…
+                      </Badge>
+                    </div>
+                  ))}
+                  {/* Demo activities */}
                   {demoActivities.map((activity) => (
                     <div key={activity.id} className="flex items-start gap-4 py-2">
                       <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
