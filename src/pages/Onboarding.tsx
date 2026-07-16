@@ -1,42 +1,113 @@
-import { useState } from 'react';
+/**
+ * Professional Onboarding — §3.1 (under 90 seconds)
+ *
+ * Sign up → identity generated client-side → choose handle → set profile → done.
+ * Abstracted entirely: the user sees "your secure channel is being created", never a key.
+ * Recovery setup offered immediately, deferrable exactly once.
+ */
+
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { ArrowRight, ArrowLeft, Shield, Check, Camera } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Shield, Check, Camera, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocale } from '@/hooks/useLocale';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginActions } from '@/hooks/useLoginActions';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { toast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
+import { generateSecretKey, nip19 } from 'nostr-tools';
 
-type Step = 'identity' | 'profile' | 'retention' | 'recovery' | 'complete';
+type Step = 'identity' | 'profile' | 'retention' | 'recovery' | 'creating' | 'complete';
 
 const Onboarding = () => {
   const { strings } = useLocale();
   const navigate = useNavigate();
+  const { user } = useCurrentUser();
+  const login = useLoginActions();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+
   const [step, setStep] = useState<Step>('identity');
   const [handle, setHandle] = useState('');
   const [fullName, setFullName] = useState('');
   const [professionalTitle, setProfessionalTitle] = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
   const [retention, setRetention] = useState('30d');
-  const [isCreating, setIsCreating] = useState(false);
 
   useSeoMeta({
     title: 'PRIVATUM — ' + strings.onboarding.title,
     description: strings.hero.subtitle,
   });
 
-  const steps: Step[] = ['identity', 'profile', 'retention', 'recovery', 'complete'];
-  const currentIndex = steps.indexOf(step);
+  // If user is already logged in, redirect to dashboard
+  useEffect(() => {
+    if (user && step === 'identity') {
+      navigate('/dashboard');
+    }
+  }, [user, step, navigate]);
 
-  const handleCreate = () => {
-    setIsCreating(true);
-    // Simulate keypair generation and channel creation
-    setTimeout(() => {
-      setIsCreating(false);
+  const steps: Step[] = ['identity', 'profile', 'retention', 'recovery', 'creating', 'complete'];
+  const visibleSteps = steps.filter(s => s !== 'creating' && s !== 'complete');
+  const currentIndex = visibleSteps.indexOf(step);
+
+  const handleCreate = async () => {
+    setStep('creating');
+
+    try {
+      // §1.2: Keys generated client-side via crypto.getRandomValues()
+      const sk = generateSecretKey();
+      const nsec = nip19.nsecEncode(sk);
+
+      // Log the user in with the generated key
+      login.nsec(nsec);
+
+      // Persist handle for quick access
+      localStorage.setItem('privatum:handle', handle);
+      localStorage.setItem('privatum:recovery-deferred', 'true');
+
+      // Brief pause to let the login propagate
+      await new Promise((r) => setTimeout(r, 800));
+
       setStep('complete');
-    }, 2000);
+    } catch (error) {
+      console.error('Onboarding failed:', error);
+      toast({
+        title: 'Kanal konnte nicht erstellt werden.',
+        description: 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      });
+      setStep('recovery');
+    }
   };
+
+  // Publish profile after account creation (once user is available)
+  useEffect(() => {
+    if (step === 'complete' && user) {
+      const publishProfile = async () => {
+        try {
+          const metadata: Record<string, string> = {};
+          if (fullName) metadata.name = fullName;
+          if (professionalTitle) metadata.about = professionalTitle;
+          metadata.privatum_handle = handle;
+          if (professionalTitle) metadata.privatum_title = professionalTitle;
+          if (jurisdiction) metadata.privatum_jurisdiction = jurisdiction;
+          if (retention) metadata.privatum_retention = retention;
+          metadata.privatum_verification_tier = 'self-declared';
+
+          await publishEvent({ kind: 0, content: JSON.stringify(metadata) });
+        } catch {
+          // Non-fatal: profile can be set later
+          console.warn('Could not publish initial profile');
+        }
+      };
+      publishProfile();
+    }
+    // Only run when step becomes 'complete'
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, user]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -54,31 +125,33 @@ const Onboarding = () => {
         </div>
       </header>
 
-      {/* Progress */}
-      <div className="container max-w-2xl mx-auto pt-8">
-        <div className="flex items-center gap-2 mb-8">
-          {steps.slice(0, -1).map((s, i) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-300',
-                i < currentIndex
-                  ? 'bg-primary text-primary-foreground'
-                  : i === currentIndex
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-muted-foreground'
-              )}>
-                {i < currentIndex ? <Check className="size-4" /> : i + 1}
-              </div>
-              {i < steps.length - 2 && (
+      {/* Progress — only show for actual steps */}
+      {step !== 'creating' && step !== 'complete' && (
+        <div className="container max-w-2xl mx-auto pt-8">
+          <div className="flex items-center gap-2 mb-8">
+            {visibleSteps.map((s, i) => (
+              <div key={s} className="flex items-center gap-2 flex-1">
                 <div className={cn(
-                  'flex-1 h-0.5 transition-colors duration-300',
-                  i < currentIndex ? 'bg-primary' : 'bg-border'
-                )} />
-              )}
-            </div>
-          ))}
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-300',
+                  i < currentIndex
+                    ? 'bg-primary text-primary-foreground'
+                    : i === currentIndex
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-muted-foreground'
+                )}>
+                  {i < currentIndex ? <Check className="size-4" /> : i + 1}
+                </div>
+                {i < visibleSteps.length - 1 && (
+                  <div className={cn(
+                    'flex-1 h-0.5 transition-colors duration-300',
+                    i < currentIndex ? 'bg-primary' : 'bg-border'
+                  )} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 container max-w-2xl mx-auto py-8">
@@ -150,7 +223,6 @@ const Onboarding = () => {
             </div>
 
             <div className="bg-card rounded-xl border border-border p-6 space-y-6">
-              {/* Photo upload */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   {strings.onboarding.photo}
@@ -274,11 +346,27 @@ const Onboarding = () => {
                 <Button variant="outline" onClick={handleCreate}>
                   {strings.onboarding.recoveryLater}
                 </Button>
-                <Button onClick={handleCreate} disabled={isCreating}>
-                  {isCreating ? strings.onboarding.title : strings.onboarding.complete}
-                  {!isCreating && <ArrowRight className="size-4 ml-1" />}
+                <Button onClick={handleCreate}>
+                  {strings.onboarding.complete}
+                  <ArrowRight className="size-4 ml-1" />
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'creating' && (
+          <div className="text-center space-y-8 py-16 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-500">
+            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+              <Loader2 className="size-8 text-primary animate-spin" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-serif font-semibold text-foreground mb-2">
+                {strings.onboarding.title}
+              </h1>
+              <p className="text-muted-foreground">
+                Ihre kryptographische Identität wird auf diesem Gerät erzeugt …
+              </p>
             </div>
           </div>
         )}
@@ -293,7 +381,7 @@ const Onboarding = () => {
                 Ihr sicherer Kanal ist bereit.
               </h1>
               <p className="text-lg text-muted-foreground max-w-md mx-auto">
-                privatum.ch/<span className="font-medium text-foreground">{handle || 'anna-meier'}</span>
+                privatum.ch/<span className="font-medium text-foreground">{handle}</span>
               </p>
             </div>
             <div className="flex justify-center gap-4">

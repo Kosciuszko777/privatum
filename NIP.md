@@ -6,30 +6,58 @@ End users never encounter Nostr terminology.
 ## Architecture
 
 - **Identity:** Standard Nostr keypairs (NIP-01) with client-side key generation.
+- **Signer abstraction:** Pluggable signing methods (local nsec, NIP-07 extension, NIP-46 bunker). Users never see raw keys.
 - **Encryption:** NIP-44 for all encrypted payloads.
 - **Messaging:** NIP-17/59 pattern for private messages (future Phase IV).
-- **Profile:** Kind 0 for professional metadata.
+- **Profile:** Kind 0 for professional metadata with Privatum extensions.
 - **Relay list:** Kind 10002 (NIP-65) for relay configuration.
 
-## Custom Events (planned for Phase II+)
+## Professional Profile (Kind 0 extension) — IMPLEMENTED
 
-### Professional Profile (Kind 0 extension)
-
-Standard kind 0 with additional fields in content JSON:
+Standard kind 0 with additional Privatum-specific fields in the content JSON.
+Parsed via `parsePrivatumProfile()` in `src/lib/signer/index.ts`.
 
 ```json
 {
   "name": "Dr. Anna Meier",
   "about": "Rechtsanwältin / Attorney at Law",
   "picture": "https://...",
+  "website": "https://meier-law.ch",
   "privatum_handle": "anna-meier",
   "privatum_title": "Rechtsanwältin",
   "privatum_jurisdiction": "Zürich, Schweiz",
-  "privatum_verification_tier": "register-verified"
+  "privatum_verification_tier": "self-declared",
+  "privatum_verified_domain": "meier-law.ch",
+  "privatum_verification_source": "Zürcher Anwaltsverband",
+  "privatum_verification_date": "2026-01-15",
+  "privatum_retention": "30d"
 }
 ```
 
-### Encrypted Document Reference (future addressable kind)
+### Verification Tiers (§4)
+
+Three visually distinct, honestly labeled tiers:
+
+1. **`self-declared`** — Default at signup. Label: "Selbstangaben" / "Self-declared".
+2. **`domain-verified`** — Control of firm domain proven (DNS/email challenge). Label: "Domain verifiziert".
+3. **`register-verified`** — Checked against a professional register. Only tier that displays the brass seal. Label: "Verifiziert".
+
+Verification is **never** implied or faked. Tier is stored in the kind 0 event
+and displayed via the `VerificationBadge` component.
+
+## Signer Abstraction (§4)
+
+Signing methods are pluggable from day one. The abstraction supports:
+- **Local (nsec):** Key in browser localStorage (via nostr-tools)
+- **Extension (NIP-07):** Browser extension signing
+- **Bunker (NIP-46):** Remote signer / FROST multi-signer bunker
+
+Future: passkeys (WebAuthn), hardware keys, mobile signer.
+
+The signer info is available via `getSignerInfo()` in `src/lib/signer/index.ts`,
+enabling feature gating based on signer capabilities (NIP-44 support, FROST support, etc.).
+
+## Encrypted Document Reference (future addressable kind)
 
 Will use an addressable kind (30000-39999 range) to store encrypted
 references to documents. The event content will be NIP-44 encrypted,
@@ -45,7 +73,7 @@ The event tags will contain only:
 - `expiration` tag: retention deadline
 - `alt` tag: "Encrypted document reference"
 
-### Hash Chain Entry (future regular kind)
+## Hash Chain Entry (future regular kind)
 
 Will use a regular kind (1000-9999 range) to record integrity
 chain entries. Content will be empty. Tags:

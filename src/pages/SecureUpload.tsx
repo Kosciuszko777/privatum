@@ -2,8 +2,10 @@ import { useState, useCallback, useRef } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { useParams } from 'react-router-dom';
 import {
-  Upload, Shield, Check, Lock, FileText, X, ArrowRight, Loader2
+  Upload, Shield, Lock, FileText, X, ArrowRight, Loader2
 } from 'lucide-react';
+import { VerificationBadge } from '@/components/profile/VerificationBadge';
+import type { VerificationTier } from '@/lib/signer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -113,33 +115,9 @@ const SecureUpload = () => {
     setUploadState('delivered');
   };
 
-  const verificationBadge = () => {
-    if (!('verified' in professional)) return null;
-    switch (professional.verified) {
-      case 'register-verified':
-        return (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brass/10 border border-brass/20">
-            <div className="w-4 h-4 rounded-full bg-brass flex items-center justify-center">
-              <Check className="size-2.5 text-brass-foreground" />
-            </div>
-            <span className="text-xs font-medium text-brass">Registriert verifiziert</span>
-          </div>
-        );
-      case 'domain-verified':
-        return (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary border border-border">
-            <Check className="size-3 text-primary" />
-            <span className="text-xs font-medium text-foreground">Domain verifiziert</span>
-          </div>
-        );
-      default:
-        return (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary border border-border">
-            <span className="text-xs text-muted-foreground">Selbstangaben</span>
-          </div>
-        );
-    }
-  };
+  const verificationTier: VerificationTier = ('verified' in professional)
+    ? professional.verified as VerificationTier
+    : 'self-declared';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -222,7 +200,7 @@ const SecureUpload = () => {
                     <p className="text-sm text-muted-foreground">{professional.jurisdiction}</p>
                   )}
                   <div className="mt-2 flex justify-center">
-                    {verificationBadge()}
+                    <VerificationBadge tier={verificationTier} />
                   </div>
                 </div>
               </div>

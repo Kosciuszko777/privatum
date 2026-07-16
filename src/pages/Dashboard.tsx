@@ -1,17 +1,23 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import {
   Inbox, FileText, LinkIcon, Users, Activity, Settings,
   Plus, ChevronRight, Shield, Clock, HardDrive,
-  ExternalLink, Download, Archive, Eye, Lock, Menu, X
+  ExternalLink, Download, Archive, Eye, Lock, Menu, X,
+  LogOut, User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { VerificationBadge } from '@/components/profile/VerificationBadge';
+import { EditProfileForm } from '@/components/profile/EditProfileForm';
 import { useLocale } from '@/hooks/useLocale';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginActions } from '@/hooks/useLoginActions';
 import {
   annaMeier,
   demoDeliveries,
@@ -19,12 +25,17 @@ import {
   demoActivities,
   dashboardStats,
 } from '@/lib/demoData';
+import { parsePrivatumProfile, type VerificationTier } from '@/lib/signer';
 import { cn } from '@/lib/utils';
+import type { NostrMetadata } from '@nostrify/nostrify';
 
 type Tab = 'overview' | 'inbox' | 'documents' | 'links' | 'contacts' | 'activity' | 'settings';
 
 const Dashboard = () => {
   const { strings } = useLocale();
+  const { user, metadata } = useCurrentUser();
+  const login = useLoginActions();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -32,6 +43,34 @@ const Dashboard = () => {
     title: `PRIVATUM — ${strings.dashboard.inbox}`,
     description: strings.hero.subtitle,
   });
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!user) {
+      // Give a brief moment for login state to load
+      const timer = setTimeout(() => {
+        if (!user) navigate('/');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, navigate]);
+
+  // Parse profile data
+  const profile = metadata
+    ? parsePrivatumProfile(metadata as NostrMetadata & Record<string, unknown>)
+    : null;
+
+  const displayName = metadata?.name || profile?.privatum_handle || 'Professional';
+  const displayTitle = profile?.privatum_title || metadata?.about || '';
+  const displayPicture = metadata?.picture;
+  const displayHandle = profile?.privatum_handle || localStorage.getItem('privatum:handle') || '';
+  const verificationTier: VerificationTier = profile?.privatum_verification_tier || 'self-declared';
+
+  // Use demo data as fallback for display
+  const isDemo = !user;
+  const effectiveName = isDemo ? annaMeier.name : displayName;
+  const firstName = effectiveName.split(' ').pop() || effectiveName;
+  const initials = effectiveName.split(' ').map((n) => n.charAt(0)).join('').slice(0, 2).toUpperCase();
 
   const navItems: { id: Tab; label: string; icon: typeof Inbox }[] = [
     { id: 'inbox', label: strings.dashboard.inbox, icon: Inbox },
@@ -45,6 +84,11 @@ const Dashboard = () => {
   const formatSize = (bytes: number) => {
     if (bytes >= 1000000) return `${(bytes / 1000000).toFixed(1)} MB`;
     return `${(bytes / 1000).toFixed(0)} KB`;
+  };
+
+  const handleLogout = async () => {
+    await login.logout();
+    navigate('/');
   };
 
   return (
@@ -72,14 +116,22 @@ const Dashboard = () => {
         {/* Professional info */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-serif font-bold text-lg">A</span>
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm text-foreground truncate">{annaMeier.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{annaMeier.title}</p>
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={displayPicture} alt={effectiveName} />
+              <AvatarFallback className="bg-primary/10 text-primary font-serif font-bold text-sm">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm text-foreground truncate">{effectiveName}</p>
+              <p className="text-xs text-muted-foreground truncate">{displayTitle}</p>
             </div>
           </div>
+          {displayHandle && (
+            <div className="mt-2">
+              <VerificationBadge tier={verificationTier} size="sm" />
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -118,8 +170,16 @@ const Dashboard = () => {
           ))}
         </nav>
 
-        {/* Security status */}
-        <div className="p-4 border-t border-border">
+        {/* Bottom actions */}
+        <div className="p-4 border-t border-border space-y-2">
+          <Link
+            to="/privacy-dashboard"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Eye className="size-4" />
+            <span>{strings.dashboard.privacyDashboard}</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
           <Link
             to="/security"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -128,6 +188,13 @@ const Dashboard = () => {
             <span>{strings.dashboard.securityCenter}</span>
             <ChevronRight className="size-3 ml-auto" />
           </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm text-destructive/70 hover:text-destructive transition-colors w-full"
+          >
+            <LogOut className="size-4" />
+            <span>Abmelden</span>
+          </button>
         </div>
       </aside>
 
@@ -147,7 +214,7 @@ const Dashboard = () => {
             <Menu className="size-5" />
           </button>
           <h1 className="font-sans font-semibold text-foreground">
-            {strings.dashboard.greeting}, {annaMeier.name.split(' ')[1]}
+            {strings.dashboard.greeting}, {firstName}
           </h1>
           <div className="ml-auto flex items-center gap-3">
             <Button size="sm" asChild>
@@ -163,6 +230,22 @@ const Dashboard = () => {
           {/* Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-6 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+              {/* Secure Inbox URL */}
+              {displayHandle && (
+                <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <LinkIcon className="size-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">Ihr Sicherer Posteingang</p>
+                    <p className="text-sm text-primary font-mono truncate">privatum.ch/{displayHandle}</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(`https://privatum.ch/inbox/${displayHandle}`)}>
+                    Kopieren
+                  </Button>
+                </div>
+              )}
+
               {/* Stats cards */}
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-border">
@@ -462,14 +545,25 @@ const Dashboard = () => {
             </div>
           )}
 
+          {/* Settings tab — Profile editing */}
+          {activeTab === 'settings' && (
+            <div className="max-w-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+              <h2 className="text-xl font-serif font-semibold text-foreground mb-6">
+                {strings.dashboard.settings}
+              </h2>
+              <EditProfileForm onSaved={() => setActiveTab('overview')} />
+            </div>
+          )}
+
           {/* Placeholder tabs */}
-          {(activeTab === 'documents' || activeTab === 'contacts' || activeTab === 'settings') && (
+          {(activeTab === 'documents' || activeTab === 'contacts') && (
             <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
               <h2 className="text-xl font-serif font-semibold text-foreground mb-4">
                 {navItems.find(n => n.id === activeTab)?.label}
               </h2>
               <Card className="border-dashed border-border">
                 <CardContent className="py-16 px-8 text-center">
+                  <UserIcon className="size-8 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground max-w-sm mx-auto">
                     {strings.dashboard.noItems}
                   </p>

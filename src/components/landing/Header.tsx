@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoginArea } from '@/components/auth/LoginArea';
 import { useLocale } from '@/hooks/useLocale';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { cn } from '@/lib/utils';
@@ -56,9 +57,12 @@ export function Header() {
           </button>
 
           {user ? (
-            <Button asChild>
-              <Link to="/dashboard">{strings.nav.dashboard}</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost">
+                <Link to="/dashboard">{strings.nav.dashboard}</Link>
+              </Button>
+              <LoginArea className="max-w-48" />
+            </div>
           ) : (
             <>
               <Button variant="ghost" asChild>
@@ -85,7 +89,7 @@ export function Header() {
       <div
         className={cn(
           'md:hidden overflow-hidden transition-all duration-300 ease-in-out',
-          mobileOpen ? 'max-h-80' : 'max-h-0'
+          mobileOpen ? 'max-h-96' : 'max-h-0'
         )}
       >
         <nav className="container pb-6 flex flex-col gap-4">
@@ -111,9 +115,12 @@ export function Header() {
           </div>
           <div className="flex gap-3">
             {user ? (
-              <Button asChild className="flex-1">
-                <Link to="/dashboard">{strings.nav.dashboard}</Link>
-              </Button>
+              <>
+                <Button asChild className="flex-1">
+                  <Link to="/dashboard">{strings.nav.dashboard}</Link>
+                </Button>
+                <LoginArea className="max-w-32" />
+              </>
             ) : (
               <>
                 <Button variant="ghost" asChild className="flex-1">
