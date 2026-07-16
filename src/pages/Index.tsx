@@ -1,23 +1,33 @@
 import { useSeoMeta } from '@unhead/react';
-
-// FIXME: Update this page (the content is just a fallback if you fail to update the page)
+import { Header } from '@/components/landing/Header';
+import { HeroSection } from '@/components/landing/HeroSection';
+import { ProblemSection } from '@/components/landing/ProblemSection';
+import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
+import { TrustSection } from '@/components/landing/TrustSection';
+import { VerticalsSection } from '@/components/landing/VerticalsSection';
+import { PricingSection } from '@/components/landing/PricingSection';
+import { Footer } from '@/components/landing/Footer';
+import { CtaSection } from '@/components/landing/CtaSection';
 
 const Index = () => {
   useSeoMeta({
-    title: 'Welcome to Your Blank App',
-    description: 'A modern Nostr client application built with React, TailwindCSS, and Nostrify.',
+    title: 'PRIVATUM — Confidential by design.',
+    description: 'Secure, zero-knowledge document transfer for lawyers, physicians, and trusted professionals. Your clients\' secrets were never ours.',
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-          Welcome to Your Blank App
-        </h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400">
-          Start building your amazing project here!
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main>
+        <HeroSection />
+        <ProblemSection />
+        <HowItWorksSection />
+        <TrustSection />
+        <VerticalsSection />
+        <PricingSection />
+        <CtaSection />
+      </main>
+      <Footer />
     </div>
   );
 };

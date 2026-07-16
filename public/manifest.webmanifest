@@ -1,0 +1,16 @@
+{
+  "name": "PRIVATUM",
+  "short_name": "Privatum",
+  "description": "Confidential by design. Secure document transfer for trusted professionals.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#6E1F2E",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

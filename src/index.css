@@ -4,6 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-serif: 'Fraunces Variable', 'Fraunces', 'Georgia', serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -31,6 +34,13 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Privatum brand colors */
+  --color-burgundy: var(--burgundy);
+  --color-burgundy-foreground: var(--burgundy-foreground);
+  --color-brass: var(--brass);
+  --color-brass-foreground: var(--brass-foreground);
+  --color-warm: var(--warm);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -74,7 +84,7 @@
   }
 }
 
-/* Container utility replacement for v4 (previously configured in tailwind.config) */
+/* Container utility replacement for v4 */
 @utility container {
   margin-inline: auto;
   padding-inline: 2rem;
@@ -83,96 +93,118 @@
   }
 }
 
+/*
+ * PRIVATUM — "Discretion" Design System
+ * Warm off-white backgrounds, charcoal typography,
+ * deep burgundy accent, sparing brass detailing.
+ */
+
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(222.2 84% 4.9%);
+  /* Warm off-white / cream backgrounds */
+  --background: #FAF8F5;
+  --foreground: #1C1C1E;
 
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222.2 84% 4.9%);
+  --card: #FFFFFF;
+  --card-foreground: #1C1C1E;
 
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222.2 84% 4.9%);
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1C1E;
 
-  --primary: hsl(222.2 47.4% 11.2%);
-  --primary-foreground: hsl(210 40% 98%);
+  /* Deep burgundy as primary */
+  --primary: #6E1F2E;
+  --primary-foreground: #FAF8F5;
 
-  --secondary: hsl(210 40% 96.1%);
-  --secondary-foreground: hsl(222.2 47.4% 11.2%);
+  /* Warm neutral secondary */
+  --secondary: #F0ECE6;
+  --secondary-foreground: #3A3A3C;
 
-  --muted: hsl(210 40% 96.1%);
-  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --muted: #F0ECE6;
+  --muted-foreground: #8A8A8E;
 
-  --accent: hsl(210 40% 96.1%);
-  --accent-foreground: hsl(222.2 47.4% 11.2%);
+  --accent: #F0ECE6;
+  --accent-foreground: #1C1C1E;
 
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(210 40% 98%);
+  --destructive: #C53030;
+  --destructive-foreground: #FFFFFF;
 
-  --border: hsl(214.3 31.8% 91.4%);
-  --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(222.2 84% 4.9%);
+  --border: #E5E0D8;
+  --input: #E5E0D8;
+  --ring: #6E1F2E;
 
-  --chart-1: hsl(12 76% 61%);
-  --chart-2: hsl(173 58% 39%);
-  --chart-3: hsl(197 37% 24%);
-  --chart-4: hsl(43 74% 66%);
-  --chart-5: hsl(27 87% 67%);
+  /* Brand tokens */
+  --burgundy: #6E1F2E;
+  --burgundy-foreground: #FAF8F5;
+  --brass: #B08D45;
+  --brass-foreground: #1C1C1E;
+  --warm: #FAF8F5;
 
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(240 4.8% 95.9%);
-  --sidebar-accent-foreground: hsl(240 5.9% 10%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --chart-1: #6E1F2E;
+  --chart-2: #B08D45;
+  --chart-3: #3A6B5E;
+  --chart-4: #5B7EA1;
+  --chart-5: #8B6F4E;
+
+  --sidebar: #F5F2ED;
+  --sidebar-foreground: #3A3A3C;
+  --sidebar-primary: #6E1F2E;
+  --sidebar-primary-foreground: #FAF8F5;
+  --sidebar-accent: #F0ECE6;
+  --sidebar-accent-foreground: #1C1C1E;
+  --sidebar-border: #E5E0D8;
+  --sidebar-ring: #6E1F2E;
 }
 
 .dark {
-  --background: hsl(222.2 84% 4.9%);
-  --foreground: hsl(210 40% 98%);
+  --background: #141214;
+  --foreground: #F0ECE6;
 
-  --card: hsl(222.2 84% 4.9%);
-  --card-foreground: hsl(210 40% 98%);
+  --card: #1C1A1E;
+  --card-foreground: #F0ECE6;
 
-  --popover: hsl(222.2 84% 4.9%);
-  --popover-foreground: hsl(210 40% 98%);
+  --popover: #1C1A1E;
+  --popover-foreground: #F0ECE6;
 
-  --primary: hsl(210 40% 98%);
-  --primary-foreground: hsl(222.2 47.4% 11.2%);
+  --primary: #D4918A;
+  --primary-foreground: #1C1A1E;
 
-  --secondary: hsl(217.2 32.6% 17.5%);
-  --secondary-foreground: hsl(210 40% 98%);
+  --secondary: #2A2628;
+  --secondary-foreground: #E5E0D8;
 
-  --muted: hsl(217.2 32.6% 17.5%);
-  --muted-foreground: hsl(215 20.2% 65.1%);
+  --muted: #2A2628;
+  --muted-foreground: #8A8A8E;
 
-  --accent: hsl(217.2 32.6% 17.5%);
-  --accent-foreground: hsl(210 40% 98%);
+  --accent: #2A2628;
+  --accent-foreground: #F0ECE6;
 
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(210 40% 98%);
+  --destructive: #C53030;
+  --destructive-foreground: #FFFFFF;
 
-  --border: hsl(217.2 32.6% 17.5%);
-  --input: hsl(217.2 32.6% 17.5%);
-  --ring: hsl(212.7 26.8% 83.9%);
+  --border: #3A3638;
+  --input: #3A3638;
+  --ring: #D4918A;
 
-  --chart-1: hsl(220 70% 50%);
-  --chart-2: hsl(160 60% 45%);
-  --chart-3: hsl(30 80% 55%);
-  --chart-4: hsl(280 65% 60%);
-  --chart-5: hsl(340 75% 55%);
+  --burgundy: #D4918A;
+  --burgundy-foreground: #1C1A1E;
+  --brass: #D4B46A;
+  --brass-foreground: #1C1A1E;
+  --warm: #1C1A1E;
 
-  --sidebar: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --chart-1: #D4918A;
+  --chart-2: #D4B46A;
+  --chart-3: #6BAF9E;
+  --chart-4: #7FA5C8;
+  --chart-5: #B89D7E;
+
+  --sidebar: #1A181C;
+  --sidebar-foreground: #E5E0D8;
+  --sidebar-primary: #D4918A;
+  --sidebar-primary-foreground: #1C1A1E;
+  --sidebar-accent: #2A2628;
+  --sidebar-accent-foreground: #F0ECE6;
+  --sidebar-border: #3A3638;
+  --sidebar-ring: #D4918A;
 }
 
 @layer base {
@@ -185,6 +217,10 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
   }
 }
