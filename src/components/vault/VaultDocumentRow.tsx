@@ -12,11 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useLocale } from '@/hooks/useLocale';
-import type { DemoVaultDocument } from '@/lib/demoData';
+import type { DisplayDocument } from '@/hooks/useVault';
 import { cn } from '@/lib/utils';
 
 interface VaultDocumentRowProps {
-  document: DemoVaultDocument;
+  document: DisplayDocument;
   onView?: () => void;
   onDownload?: () => void;
   onShare?: () => void;
@@ -65,6 +65,12 @@ export function VaultDocumentRow({ document, onView, onDownload, onShare, onDele
             <Badge variant="outline" className="text-[10px] shrink-0">
               <Clock className="size-2.5 mr-0.5" />
               {strings.vault.pendingDeletion}
+            </Badge>
+          )}
+          {!document.isDemo && (
+            <Badge variant="outline" className="text-[10px] shrink-0 text-primary border-primary/30">
+              <Lock className="size-2.5 mr-0.5" />
+              AES-256
             </Badge>
           )}
         </div>

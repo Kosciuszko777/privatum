@@ -1,9 +1,9 @@
 /**
  * VAULT — §5 Zero-knowledge encrypted storage.
  *
- * Matters, cases, patients, folders.
- * Client-side encryption throughout.
- * Permission layer with grant/revoke/audit.
+ * Real encryption (AES-256-GCM) via cryptvault.
+ * Real storage via IndexedDB StorageDriver.
+ * Demo data is merged with real data for a rich demo experience.
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -37,17 +37,16 @@ import { Progress } from '@/components/ui/progress';
 import { VaultFolderCard } from '@/components/vault/VaultFolderCard';
 import { VaultDocumentRow } from '@/components/vault/VaultDocumentRow';
 import { PermissionGrantCard } from '@/components/vault/PermissionGrantCard';
+import { FolderPickerDialog } from '@/components/vault/FolderPickerDialog';
 import { useLocale } from '@/hooks/useLocale';
-import {
-  demoVaultFolders,
-  demoVaultDocuments,
-  demoAccessGrants,
-} from '@/lib/demoData';
+import { useVault } from '@/hooks/useVault';
 import { toast } from '@/hooks/useToast';
 import type { VaultRetention } from '@/lib/vault';
 
 const Vault = () => {
   const { strings } = useLocale();
+  const vault = useVault();
+
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -63,78 +62,137 @@ const Vault = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'encrypting' | 'storing' | 'complete'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Folder picker for uploads when not inside a folder
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+
   useSeoMeta({ title: `PRIVATUM — ${strings.vault.title}` });
 
   const activeFolder = activeFolderId
-    ? demoVaultFolders.find((f) => f.id === activeFolderId)
+    ? vault.displayFolders.find((f) => f.id === activeFolderId)
     : null;
 
   const documentsInFolder = activeFolderId
-    ? demoVaultDocuments.filter((d) => d.folderId === activeFolderId)
+    ? vault.displayDocuments.filter((d) => d.folderId === activeFolderId)
     : [];
 
-  const allDocuments = demoVaultDocuments;
-
   const filteredDocuments = searchQuery
-    ? allDocuments.filter((d) =>
+    ? vault.displayDocuments.filter((d) =>
         d.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (d.senderName?.toLowerCase().includes(searchQuery.toLowerCase()))
       )
     : documentsInFolder;
 
-  const totalSize = allDocuments.reduce((sum, d) => sum + d.size, 0);
   const formatSize = (bytes: number) => {
     if (bytes >= 1000000000) return `${(bytes / 1000000000).toFixed(1)} GB`;
     if (bytes >= 1000000) return `${(bytes / 1000000).toFixed(1)} MB`;
     return `${(bytes / 1000).toFixed(0)} KB`;
   };
 
+  // ─── Folder creation ────────────────────────────────────────────
+
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
+    vault.createFolder(newFolderName.trim(), newFolderDesc.trim() || undefined);
     toast({ title: `"${newFolderName}" — ${strings.vault.folderCreated}` });
     setCreateFolderOpen(false);
     setNewFolderName('');
     setNewFolderDesc('');
   };
 
+  const handleDeleteFolder = (folderId: string, folderName: string, isDemo: boolean) => {
+    if (isDemo) {
+      toast({ title: `"${folderName}" — ${strings.vault.folderDeleted}`, variant: 'destructive' });
+      return;
+    }
+    vault.deleteFolder(folderId);
+    if (activeFolderId === folderId) setActiveFolderId(null);
+    toast({ title: `"${folderName}" — ${strings.vault.folderDeleted}`, variant: 'destructive' });
+  };
+
+  // ─── File handling ──────────────────────────────────────────────
+
   const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-    }
+    if (files.length > 0) setSelectedFiles(files);
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-    }
+    if (files.length > 0) setSelectedFiles(files);
   }, []);
 
-  const handleUpload = useCallback(async () => {
+  // ─── Upload with real encryption ───────────────────────────────
+
+  const handleStartUpload = () => {
+    if (selectedFiles.length === 0) return;
+    if (activeFolderId) {
+      // Already in a folder — upload directly
+      performUpload(activeFolderId);
+    } else {
+      // Need to pick a folder first
+      setFolderPickerOpen(true);
+    }
+  };
+
+  const performUpload = useCallback(async (folderId: string) => {
     if (selectedFiles.length === 0) return;
 
+    setFolderPickerOpen(false);
     setUploadStatus('encrypting');
-    setUploadProgress(30);
+    setUploadProgress(10);
 
-    // Simulate encryption delay
-    await new Promise((r) => setTimeout(r, 800));
-    setUploadProgress(60);
-    setUploadStatus('storing');
+    try {
+      await vault.uploadFiles(
+        selectedFiles,
+        folderId,
+        uploadRetention,
+        (step, pct) => {
+          setUploadStatus(step);
+          setUploadProgress(pct);
+        },
+      );
 
-    // Simulate storage delay
-    await new Promise((r) => setTimeout(r, 600));
-    setUploadProgress(100);
-    setUploadStatus('complete');
+      setUploadStatus('complete');
+      setUploadProgress(100);
 
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: strings.vault.uploadComplete });
-    setUploadDialogOpen(false);
-    setSelectedFiles([]);
-    setUploadProgress(null);
-    setUploadStatus('idle');
-  }, [selectedFiles, strings.vault.uploadComplete]);
+      await new Promise((r) => setTimeout(r, 600));
+      toast({ title: strings.vault.uploadComplete });
+    } catch {
+      toast({ title: strings.common.error, variant: 'destructive' });
+    } finally {
+      setUploadDialogOpen(false);
+      setSelectedFiles([]);
+      setUploadProgress(null);
+      setUploadStatus('idle');
+    }
+  }, [selectedFiles, uploadRetention, vault, strings]);
+
+  // ─── Document actions ───────────────────────────────────────────
+
+  const handleDownload = async (docId: string, filename: string, isDemo: boolean) => {
+    if (isDemo) {
+      toast({ title: `${strings.vault.downloading}: ${filename}` });
+      return;
+    }
+    const ok = await vault.downloadDocument(docId);
+    if (ok) {
+      toast({ title: `${strings.vault.downloading}: ${filename}` });
+    } else {
+      toast({ title: strings.common.error, variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (docId: string, filename: string, isDemo: boolean) => {
+    if (isDemo) {
+      toast({ title: `${filename} ${strings.vault.deleting}`, variant: 'destructive' });
+      return;
+    }
+    await vault.deleteDocument(docId);
+    toast({ title: `${filename} ${strings.vault.deleting}`, variant: 'destructive' });
+  };
+
+  // ─── Retention options ──────────────────────────────────────────
 
   const retentionOptions: { value: VaultRetention; label: string }[] = [
     { value: 'manual', label: strings.vault.retentionManual },
@@ -181,15 +239,15 @@ const Vault = () => {
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Lock className="size-3.5 text-primary" />
-            <span className="font-medium text-foreground">{allDocuments.length}</span> {strings.vault.documents}
+            <span className="font-medium text-foreground">{vault.stats.documentCount}</span> {strings.vault.documents}
           </span>
           <span>·</span>
           <span>
-            <span className="font-medium text-foreground">{demoVaultFolders.length}</span> {strings.vault.folders}
+            <span className="font-medium text-foreground">{vault.stats.folderCount}</span> {strings.vault.folders}
           </span>
           <span>·</span>
           <span>
-            <span className="font-medium text-foreground">{formatSize(totalSize)}</span> {strings.vault.encrypted}
+            <span className="font-medium text-foreground">{formatSize(vault.stats.totalSize)}</span> {strings.vault.encrypted}
           </span>
           <span className="ml-auto text-xs">
             {strings.vault.allEncrypted}
@@ -269,9 +327,9 @@ const Vault = () => {
                     key={doc.id}
                     document={doc}
                     onView={() => toast({ title: `${strings.vault.decrypting}: ${doc.filename}` })}
-                    onDownload={() => toast({ title: `${strings.vault.downloading}: ${doc.filename}` })}
+                    onDownload={() => handleDownload(doc.id, doc.filename, doc.isDemo)}
                     onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
-                    onDelete={() => toast({ title: `${doc.filename} ${strings.vault.deleting}`, variant: 'destructive' })}
+                    onDelete={() => handleDelete(doc.id, doc.filename, doc.isDemo)}
                   />
                 ))}
                 {filteredDocuments.length === 0 && (
@@ -287,13 +345,13 @@ const Vault = () => {
             {/* Folder list */}
             {!activeFolderId && !searchQuery && (
               <div className={viewMode === 'grid' ? 'grid sm:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}>
-                {demoVaultFolders.map((folder) => (
+                {vault.displayFolders.map((folder) => (
                   <VaultFolderCard
                     key={folder.id}
                     folder={folder}
                     onClick={() => setActiveFolderId(folder.id)}
-                    onRename={() => toast({ title: `${strings.vault.rename} …` })}
-                    onDelete={() => toast({ title: `"${folder.name}" — ${strings.vault.folderDeleted}`, variant: 'destructive' })}
+                    onRename={!folder.isDemo ? () => toast({ title: `${strings.vault.rename} …` }) : undefined}
+                    onDelete={() => handleDeleteFolder(folder.id, folder.name, folder.isDemo)}
                     onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
                   />
                 ))}
@@ -307,7 +365,6 @@ const Vault = () => {
                   <p className="text-sm text-muted-foreground mb-4">{activeFolder.description}</p>
                 )}
 
-                {/* Upload button in folder context */}
                 <div className="mb-4">
                   <Button size="sm" variant="outline" onClick={() => setUploadDialogOpen(true)}>
                     <Plus className="size-4 mr-1" />
@@ -320,9 +377,9 @@ const Vault = () => {
                     key={doc.id}
                     document={doc}
                     onView={() => toast({ title: `${strings.vault.decrypting}: ${doc.filename}` })}
-                    onDownload={() => toast({ title: `${strings.vault.downloading}: ${doc.filename}` })}
+                    onDownload={() => handleDownload(doc.id, doc.filename, doc.isDemo)}
                     onShare={() => toast({ title: `${strings.vault.shareAccess} …` })}
-                    onDelete={() => toast({ title: `${doc.filename} ${strings.vault.deleting}`, variant: 'destructive' })}
+                    onDelete={() => handleDelete(doc.id, doc.filename, doc.isDemo)}
                   />
                 ))}
                 {documentsInFolder.length === 0 && (
@@ -351,7 +408,7 @@ const Vault = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {demoAccessGrants.map((grant) => (
+                {vault.displayGrants.map((grant) => (
                   <PermissionGrantCard
                     key={grant.id}
                     grant={grant}
@@ -365,7 +422,6 @@ const Vault = () => {
               </CardContent>
             </Card>
 
-            {/* Permission verbs reference */}
             <Card className="border-border bg-secondary/20">
               <CardContent className="p-6">
                 <h3 className="font-sans font-medium text-sm text-foreground mb-3">{strings.vault.permissionLevels}</h3>
@@ -398,9 +454,7 @@ const Vault = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{strings.vault.newVaultFolder}</DialogTitle>
-            <DialogDescription>
-              {strings.vault.allEncrypted}
-            </DialogDescription>
+            <DialogDescription>{strings.vault.allEncrypted}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -435,10 +489,7 @@ const Vault = () => {
 
       {/* Upload dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
-        if (!open && uploadStatus === 'idle') {
-          setUploadDialogOpen(false);
-          setSelectedFiles([]);
-        } else if (!open && uploadStatus === 'complete') {
+        if (!open && (uploadStatus === 'idle' || uploadStatus === 'complete')) {
           setUploadDialogOpen(false);
           setSelectedFiles([]);
           setUploadProgress(null);
@@ -448,9 +499,7 @@ const Vault = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{strings.vault.uploadTitle}</DialogTitle>
-            <DialogDescription>
-              {strings.vault.allEncrypted}
-            </DialogDescription>
+            <DialogDescription>{strings.vault.allEncrypted}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -463,9 +512,7 @@ const Vault = () => {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="size-8 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {strings.vault.uploadDragDrop}
-                </p>
+                <p className="text-sm text-muted-foreground">{strings.vault.uploadDragDrop}</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
                   {strings.vault.uploadSelectFiles}
                 </Button>
@@ -546,7 +593,7 @@ const Vault = () => {
                 <Button variant="outline" onClick={() => { setUploadDialogOpen(false); setSelectedFiles([]); }}>
                   {strings.common.cancel}
                 </Button>
-                <Button onClick={handleUpload} disabled={selectedFiles.length === 0}>
+                <Button onClick={handleStartUpload} disabled={selectedFiles.length === 0}>
                   <Lock className="size-4 mr-1" />
                   {strings.vault.uploadTitle}
                 </Button>
@@ -555,6 +602,20 @@ const Vault = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Folder picker for uploads when not inside a folder */}
+      <FolderPickerDialog
+        open={folderPickerOpen}
+        onOpenChange={setFolderPickerOpen}
+        folders={vault.displayFolders}
+        onSelect={performUpload}
+        onCreateFolder={(name, desc) => {
+          const f = vault.createFolder(name, desc);
+          return f.id;
+        }}
+        title={strings.vault.uploadTitle}
+        description={strings.vault.allEncrypted}
+      />
     </div>
   );
 };

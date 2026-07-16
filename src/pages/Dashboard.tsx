@@ -4,8 +4,8 @@ import { useSeoMeta } from '@unhead/react';
 import {
   Inbox, FileText, LinkIcon, Users, Activity, Settings,
   Plus, ChevronRight, Shield, Clock, HardDrive,
-  ExternalLink, Download, Archive, Eye, Lock, Menu, X,
-  LogOut, User as UserIcon
+  ExternalLink, Download, Eye, Lock, Menu, X,
+  LogOut, User as UserIcon, FolderOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,16 +15,20 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { VerificationBadge } from '@/components/profile/VerificationBadge';
 import { EditProfileForm } from '@/components/profile/EditProfileForm';
+import { FolderPickerDialog } from '@/components/vault/FolderPickerDialog';
 import { useLocale } from '@/hooks/useLocale';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
+import { useVault } from '@/hooks/useVault';
 import {
   annaMeier,
   demoDeliveries,
   demoSecureLinks,
   demoActivities,
   dashboardStats,
+  type DemoDelivery,
 } from '@/lib/demoData';
+import { toast } from '@/hooks/useToast';
 import { parsePrivatumProfile, type VerificationTier } from '@/lib/signer';
 import { cn } from '@/lib/utils';
 import type { NostrMetadata } from '@nostrify/nostrify';
@@ -36,8 +40,10 @@ const Dashboard = () => {
   const { user, metadata } = useCurrentUser();
   const login = useLoginActions();
   const navigate = useNavigate();
+  const vault = useVault();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moveToVaultDelivery, setMoveToVaultDelivery] = useState<DemoDelivery | null>(null);
 
   useSeoMeta({
     title: `PRIVATUM — ${strings.dashboard.inbox}`,
@@ -201,7 +207,7 @@ const Dashboard = () => {
             className="flex items-center gap-2 text-sm text-destructive/70 hover:text-destructive transition-colors w-full"
           >
             <LogOut className="size-4" />
-            <span>Abmelden</span>
+            <span>{strings.dashboard.logout}</span>
           </button>
         </div>
       </aside>
@@ -245,12 +251,12 @@ const Dashboard = () => {
                     <LinkIcon className="size-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">Ihr Sicherer Posteingang</p>
+                    <p className="text-sm font-medium text-foreground">{strings.dashboard.secureInbox}</p>
                     <p className="text-sm text-primary font-mono truncate">privatum.ch/{displayHandle}</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(`https://privatum.ch/inbox/${displayHandle}`)}>
-                    Kopieren
-                  </Button>
+                   <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(`https://privatum.ch/inbox/${displayHandle}`)}>
+                     {strings.dashboard.copy}
+                   </Button>
                 </div>
               )}
 
@@ -347,12 +353,12 @@ const Dashboard = () => {
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                              {delivery.fileCount} {delivery.fileCount === 1 ? 'Dokument' : 'Dokumente'}
+                              {delivery.fileCount} {delivery.fileCount === 1 ? strings.dashboard.document : strings.dashboard.documentsPlural}
                               {delivery.message && ` — ${delivery.message}`}
                             </p>
                           </div>
                           {delivery.status === 'new' && (
-                            <Badge variant="outline" className="text-xs shrink-0">Neu</Badge>
+                            <Badge variant="outline" className="text-xs shrink-0">{strings.dashboard.new}</Badge>
                           )}
                         </div>
                       ))}
@@ -416,13 +422,13 @@ const Dashboard = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium text-foreground">{delivery.senderName}</span>
                           {delivery.status === 'new' && (
-                            <Badge className="text-xs bg-primary text-primary-foreground">Neu</Badge>
+                            <Badge className="text-xs bg-primary text-primary-foreground">{strings.dashboard.new}</Badge>
                           )}
                           {delivery.status === 'viewed' && (
-                            <Badge variant="outline" className="text-xs">Gesehen</Badge>
+                            <Badge variant="outline" className="text-xs">{strings.dashboard.viewed}</Badge>
                           )}
                           {delivery.status === 'downloaded' && (
-                            <Badge variant="secondary" className="text-xs">Heruntergeladen</Badge>
+                            <Badge variant="secondary" className="text-xs">{strings.dashboard.downloaded}</Badge>
                           )}
                           <span className="text-sm text-muted-foreground ml-auto">{delivery.date}</span>
                         </div>
@@ -441,15 +447,15 @@ const Dashboard = () => {
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="outline">
                             <Eye className="size-3 mr-1" />
-                            Ansehen
+                            {strings.vault.permView}
                           </Button>
                           <Button size="sm" variant="outline">
                             <Download className="size-3 mr-1" />
-                            Herunterladen
+                            {strings.common.download}
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Archive className="size-3 mr-1" />
-                            Archivieren
+                          <Button size="sm" variant="outline" onClick={() => setMoveToVaultDelivery(delivery)}>
+                            <FolderOpen className="size-3 mr-1" />
+                            {strings.vault.openVault}
                           </Button>
                         </div>
                       </div>
@@ -580,19 +586,19 @@ const Dashboard = () => {
               <div className="grid sm:grid-cols-3 gap-4">
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
-                    <p className="text-2xl font-serif font-bold text-foreground">12</p>
+                    <p className="text-2xl font-serif font-bold text-foreground">{vault.stats.documentCount}</p>
                     <p className="text-xs text-muted-foreground">{strings.vault.encryptedDocuments}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
-                    <p className="text-2xl font-serif font-bold text-foreground">3</p>
+                    <p className="text-2xl font-serif font-bold text-foreground">{vault.stats.folderCount}</p>
                     <p className="text-xs text-muted-foreground">{strings.vault.foldersMatters}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border">
                   <CardContent className="pt-6 text-center">
-                    <p className="text-2xl font-serif font-bold text-foreground">2</p>
+                    <p className="text-2xl font-serif font-bold text-foreground">{vault.stats.activePermissions}</p>
                     <p className="text-xs text-muted-foreground">{strings.vault.activePermissions}</p>
                   </CardContent>
                 </Card>
@@ -635,6 +641,33 @@ const Dashboard = () => {
           )}
         </div>
       </main>
+
+      {/* Move to Vault folder picker */}
+      <FolderPickerDialog
+        open={!!moveToVaultDelivery}
+        onOpenChange={(open) => { if (!open) setMoveToVaultDelivery(null); }}
+        folders={vault.displayFolders}
+        onSelect={(folderId) => {
+          if (moveToVaultDelivery) {
+            vault.moveDeliveryToVault(
+              { senderName: moveToVaultDelivery.senderName, files: moveToVaultDelivery.files },
+              folderId,
+              'manual',
+            );
+            const folderName = vault.displayFolders.find((f) => f.id === folderId)?.name || strings.vault.title;
+            toast({
+              title: `${moveToVaultDelivery.files.length} ${strings.vault.documents} → ${folderName}`,
+            });
+            setMoveToVaultDelivery(null);
+          }
+        }}
+        onCreateFolder={(name, desc) => {
+          const f = vault.createFolder(name, desc);
+          return f.id;
+        }}
+        title={strings.vault.openVault}
+        description={strings.vault.vaultSubDesc}
+      />
     </div>
   );
 };

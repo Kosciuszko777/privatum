@@ -8,10 +8,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/hooks/useLocale';
-import type { DemoVaultFolder } from '@/lib/demoData';
+import type { DisplayFolder } from '@/hooks/useVault';
 
 interface VaultFolderCardProps {
-  folder: DemoVaultFolder;
+  folder: DisplayFolder;
   onClick: () => void;
   onRename?: () => void;
   onDelete?: () => void;
