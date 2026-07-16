@@ -13,6 +13,7 @@ const SecurityCenter = lazy(() => import("./pages/SecurityCenter"));
 const CreateSecureLink = lazy(() => import("./pages/CreateSecureLink"));
 const PrivacyDashboard = lazy(() => import("./pages/PrivacyDashboard"));
 const Login = lazy(() => import("./pages/Login"));
+const Vault = lazy(() => import("./pages/Vault"));
 
 export function AppRouter() {
   return (
@@ -26,6 +27,7 @@ export function AppRouter() {
         <Route path="/dashboard/create-link" element={<CreateSecureLink />} />
         <Route path="/security" element={<SecurityCenter />} />
         <Route path="/privacy-dashboard" element={<PrivacyDashboard />} />
+        <Route path="/vault" element={<Vault />} />
         {/* Secure upload — permanent inbox */}
         <Route path="/inbox/:handle" element={<SecureUpload />} />
         {/* Secure upload — per-link */}

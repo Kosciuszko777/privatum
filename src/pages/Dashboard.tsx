@@ -173,6 +173,14 @@ const Dashboard = () => {
         {/* Bottom actions */}
         <div className="p-4 border-t border-border space-y-2">
           <Link
+            to="/vault"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Lock className="size-4" />
+            <span>Vault</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
+          <Link
             to="/privacy-dashboard"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -555,11 +563,66 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Placeholder tabs */}
-          {(activeTab === 'documents' || activeTab === 'contacts') && (
+          {/* Documents tab — links to Vault */}
+          {activeTab === 'documents' && (
+            <div className="space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-serif font-semibold text-foreground">{strings.dashboard.documents}</h2>
+                <Button size="sm" asChild>
+                  <Link to="/vault">
+                    <Lock className="size-4 mr-1" />
+                    Vault öffnen
+                  </Link>
+                </Button>
+              </div>
+
+              {/* Quick stats */}
+              <div className="grid sm:grid-cols-3 gap-4">
+                <Card className="border-border">
+                  <CardContent className="pt-6 text-center">
+                    <p className="text-2xl font-serif font-bold text-foreground">12</p>
+                    <p className="text-xs text-muted-foreground">Verschlüsselte Dokumente</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="pt-6 text-center">
+                    <p className="text-2xl font-serif font-bold text-foreground">3</p>
+                    <p className="text-xs text-muted-foreground">Ordner / Mandate</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="pt-6 text-center">
+                    <p className="text-2xl font-serif font-bold text-foreground">2</p>
+                    <p className="text-xs text-muted-foreground">Aktive Berechtigungen</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-primary/10 bg-primary/5">
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Lock className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">Vault — Verschlüsselter Dokumentenspeicher</p>
+                    <p className="text-sm text-muted-foreground">
+                      Mandate, Fälle und Ordner mit clientseitiger Verschlüsselung.
+                      Kryptographische Zugriffsberechtigungen mit Widerruf.
+                    </p>
+                  </div>
+                  <Button asChild variant="outline">
+                    <Link to="/vault">Öffnen</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Contacts placeholder */}
+          {activeTab === 'contacts' && (
             <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
               <h2 className="text-xl font-serif font-semibold text-foreground mb-4">
-                {navItems.find(n => n.id === activeTab)?.label}
+                {strings.dashboard.contacts}
               </h2>
               <Card className="border-dashed border-border">
                 <CardContent className="py-16 px-8 text-center">

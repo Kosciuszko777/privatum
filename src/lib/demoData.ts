@@ -212,3 +212,224 @@ export const dashboardStats = {
   storagePercent: 92,
   securityScore: 3, // out of 5 checklist items
 };
+
+// ─── Vault demo data ─────────────────────────────────────────────────
+
+export interface DemoVaultFolder {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  documentCount: number;
+  totalSize: number;
+  lastActivity: string;
+}
+
+export interface DemoVaultDocument {
+  id: string;
+  folderId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  status: 'active' | 'pending-deletion';
+  source: 'inbox' | 'upload' | 'secure-link';
+  senderName?: string;
+  createdAt: string;
+  deleteAt?: string;
+  retention: string;
+}
+
+export interface DemoAccessGrant {
+  id: string;
+  grantedName: string;
+  targetName: string;
+  permissions: string[];
+  createdAt: string;
+  expiresAt?: string;
+  status: 'active' | 'expired' | 'revoked';
+}
+
+export const demoVaultFolders: DemoVaultFolder[] = [
+  {
+    id: 'vf-001',
+    name: 'Nachlasssache Müller',
+    description: 'Erbschaftsangelegenheiten Familie Müller, Zollikon',
+    color: '#6E1F2E',
+    documentCount: 5,
+    totalSize: 12800000,
+    lastActivity: '15. Juli 2026',
+  },
+  {
+    id: 'vf-002',
+    name: 'Alpine Ventures AG',
+    description: 'Due Diligence und Gesellschaftsrecht',
+    color: '#3A6B5E',
+    documentCount: 3,
+    totalSize: 4200000,
+    lastActivity: '14. Juli 2026',
+  },
+  {
+    id: 'vf-003',
+    name: 'Private Client 2026',
+    description: 'Steuer- und Vermögensplanung',
+    color: '#B08D45',
+    documentCount: 4,
+    totalSize: 9800000,
+    lastActivity: '12. Juli 2026',
+  },
+];
+
+export const demoVaultDocuments: DemoVaultDocument[] = [
+  {
+    id: 'vd-001',
+    folderId: 'vf-001',
+    filename: 'Passport_Mueller.pdf',
+    mimeType: 'application/pdf',
+    size: 2400000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Thomas Müller',
+    createdAt: '15. Juli 2026',
+    deleteAt: '15. August 2026',
+    retention: '30d',
+  },
+  {
+    id: 'vd-002',
+    folderId: 'vf-001',
+    filename: 'Grundbuchauszug_Zollikon.pdf',
+    mimeType: 'application/pdf',
+    size: 890000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Thomas Müller',
+    createdAt: '15. Juli 2026',
+    retention: 'manual',
+  },
+  {
+    id: 'vd-003',
+    folderId: 'vf-001',
+    filename: 'Bankauszüge_Q1-Q4.zip',
+    mimeType: 'application/zip',
+    size: 5200000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Thomas Müller',
+    createdAt: '15. Juli 2026',
+    deleteAt: '15. August 2026',
+    retention: '30d',
+  },
+  {
+    id: 'vd-004',
+    folderId: 'vf-001',
+    filename: 'Testament_Entwurf_v2.pdf',
+    mimeType: 'application/pdf',
+    size: 340000,
+    status: 'active',
+    source: 'upload',
+    createdAt: '10. Juli 2026',
+    retention: 'manual',
+  },
+  {
+    id: 'vd-005',
+    folderId: 'vf-001',
+    filename: 'Liegenschaftsbewertung.pdf',
+    mimeType: 'application/pdf',
+    size: 3970000,
+    status: 'pending-deletion',
+    source: 'inbox',
+    senderName: 'Immobilien Schweiz AG',
+    createdAt: '5. Juli 2026',
+    deleteAt: '20. Juli 2026',
+    retention: '30d',
+  },
+  {
+    id: 'vd-006',
+    folderId: 'vf-002',
+    filename: 'Shareholders_Agreement_v3.pdf',
+    mimeType: 'application/pdf',
+    size: 1800000,
+    status: 'active',
+    source: 'secure-link',
+    senderName: 'Alpine Ventures AG',
+    createdAt: '14. Juli 2026',
+    retention: 'manual',
+  },
+  {
+    id: 'vd-007',
+    folderId: 'vf-002',
+    filename: 'Due_Diligence_Report.pdf',
+    mimeType: 'application/pdf',
+    size: 1200000,
+    status: 'active',
+    source: 'upload',
+    createdAt: '12. Juli 2026',
+    retention: 'manual',
+  },
+  {
+    id: 'vd-008',
+    folderId: 'vf-002',
+    filename: 'Handelsregisterauszug.pdf',
+    mimeType: 'application/pdf',
+    size: 1200000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Alpine Ventures AG',
+    createdAt: '8. Juli 2026',
+    retention: 'manual',
+  },
+  {
+    id: 'vd-009',
+    folderId: 'vf-003',
+    filename: 'Steuerdokumente_2025.zip',
+    mimeType: 'application/zip',
+    size: 8900000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Karin Bachmann',
+    createdAt: '12. Juli 2026',
+    deleteAt: '12. August 2026',
+    retention: '30d',
+  },
+  {
+    id: 'vd-010',
+    folderId: 'vf-003',
+    filename: 'Medical_Report.pdf',
+    mimeType: 'application/pdf',
+    size: 450000,
+    status: 'active',
+    source: 'inbox',
+    senderName: 'Karin Bachmann',
+    createdAt: '12. Juli 2026',
+    retention: 'manual',
+  },
+];
+
+export const demoAccessGrants: DemoAccessGrant[] = [
+  {
+    id: 'ag-001',
+    grantedName: 'RA Lukas Weber (Kanzlei Weber & Partner)',
+    targetName: 'Nachlasssache Müller',
+    permissions: ['view', 'download'],
+    createdAt: '12. Juli 2026',
+    expiresAt: '31. Dezember 2026',
+    status: 'active',
+  },
+  {
+    id: 'ag-002',
+    grantedName: 'Treuhand Gasser',
+    targetName: 'Private Client 2026 — Steuerdokumente_2025.zip',
+    permissions: ['view', 'download', 'forward'],
+    createdAt: '13. Juli 2026',
+    expiresAt: '30. September 2026',
+    status: 'active',
+  },
+  {
+    id: 'ag-003',
+    grantedName: 'Alpine Ventures AG (Sekretariat)',
+    targetName: 'Due_Diligence_Report.pdf',
+    permissions: ['view'],
+    createdAt: '10. Juli 2026',
+    expiresAt: '10. Juli 2026',
+    status: 'expired',
+  },
+];
