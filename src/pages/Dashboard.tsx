@@ -5,7 +5,7 @@ import {
   Inbox, FileText, LinkIcon, Users, Activity, Settings,
   Plus, ChevronRight, Shield, Clock, HardDrive,
   ExternalLink, Download, Eye, Lock, Menu, X,
-  LogOut, User as UserIcon, FolderOpen
+  LogOut, User as UserIcon, FolderOpen, MessageSquareLock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -180,6 +180,14 @@ const Dashboard = () => {
 
         {/* Bottom actions */}
         <div className="p-4 border-t border-border space-y-2">
+          <Link
+            to="/messages"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <MessageSquareLock className="size-4" />
+            <span>{strings.dashboard.messages}</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
           <Link
             to="/vault"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"

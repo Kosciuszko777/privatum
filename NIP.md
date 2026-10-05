@@ -8,7 +8,7 @@ End users never encounter Nostr terminology.
 - **Identity:** Standard Nostr keypairs (NIP-01) with client-side key generation.
 - **Signer abstraction:** Pluggable signing methods (local nsec, NIP-07 extension, NIP-46 bunker). Users never see raw keys.
 - **Encryption:** NIP-44 for all encrypted payloads.
-- **Messaging:** NIP-17/59 pattern for private messages (future Phase IV).
+- **Messaging:** NIP-17 private direct messages, sealed (NIP-59 kind 13) and gift-wrapped (NIP-59 kind 1059). **IMPLEMENTED (Phase IV).**
 - **Profile:** Kind 0 for professional metadata with Privatum extensions.
 - **Relay list:** Kind 10002 (NIP-65) for relay configuration.
 
@@ -83,6 +83,39 @@ chain entries. Content will be empty. Tags:
 - `channel` tag: channel identifier
 - `direction` tag: "inbound" or "outbound"
 - `alt` tag: "Privatum integrity chain entry"
+
+## Secure Messaging (NIP-17 / NIP-59) — IMPLEMENTED (Phase IV)
+
+Professionals correspond with clients and colleagues over an end-to-end
+encrypted channel. Privatum does not define a new kind here; it uses the
+standard NIP-17 sealed-DM flow so messages interoperate with the wider
+Nostr DM ecosystem.
+
+Layers (see `src/lib/messaging/index.ts`):
+
+1. **Rumor — kind 14 (unsigned).** The plaintext chat message. Tags:
+   - `p` tag: recipient pubkey.
+   - `privatum-attachment` tag (optional, Privatum extension):
+     `["privatum-attachment", filename, size, sha256Hash, vaultDocumentId]`.
+     This is only a *reference* to an encrypted Vault document — the
+     document contents are never placed in the event.
+2. **Seal — kind 13.** The rumor, NIP-44-encrypted to the recipient and
+   signed by the real sender. Created via the user's signer.
+3. **Gift wrap — kind 1059.** The seal, NIP-44-encrypted to the recipient
+   and signed by a one-time ephemeral key, `p`-tagged to the recipient.
+   `created_at` is randomized up to two days in the past (NIP-59) to blur
+   metadata. Two wraps are produced per message: one to the recipient and
+   one to the sender (self-copy for multi-device).
+
+The ephemeral gift-wrap layer uses `nostr-tools` NIP-44 primitives
+directly (the app signer only knows the user's own key); the inner seal
+uses the user's signer.
+
+Decrypted plaintext is cached locally (`privatum:messages:conversations`)
+so the UI is instant and offline-capable. The cache holds only what this
+device already decrypted. Every sent/received message is recorded in the
+integrity hash chain on the `messages` channel (metadata only — filename,
+size, and hash; never content).
 
 ## Storage Layer
 
