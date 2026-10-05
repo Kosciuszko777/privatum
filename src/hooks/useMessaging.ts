@@ -30,6 +30,7 @@ import {
   createRecipientGiftWrap,
   unwrapGiftWrap,
   rumorToMessage,
+  giftWrapExpiration,
   isReceiptRumor,
   receiptMessageIds,
   loadConversations,
@@ -38,6 +39,7 @@ import {
   applyReadReceipts,
   unacknowledgedReceivedIds,
   markReceiptsSent,
+  purgeExpiredMessages,
   type Conversation,
   type SecureMessage,
   type MessageAttachment,
@@ -45,6 +47,9 @@ import {
 } from '@/lib/messaging';
 import { resolveRecipientRelays } from '@/lib/relayHints';
 import { getContact } from '@/lib/contacts';
+import {
+  loadRetention, expirationTag, computeExpiration, type MessageRetention,
+} from '@/lib/messageRetention';
 import { createChainEntry, storeChain, loadChain, getLatestHash } from '@/lib/hashchain';
 
 const MESSAGES_CHANNEL = 'messages';
@@ -78,6 +83,10 @@ export function useMessaging() {
     refetchInterval: 20_000,
     queryFn: async (c) => {
       if (!user) return [];
+
+      // NIP-40: drop any locally-cached messages that have expired.
+      purgeExpiredMessages();
+
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(8000)]);
       const events = await nostr.query(
         [{ kinds: [KIND_GIFT_WRAP], '#p': [user.pubkey], limit: 300 }],
@@ -99,7 +108,8 @@ export function useMessaging() {
           continue;
         }
 
-        const message = rumorToMessage(rumor, user.pubkey);
+        const expiresAt = giftWrapExpiration(wrap);
+        const message = rumorToMessage(rumor, user.pubkey, expiresAt);
         const before = JSON.stringify(cacheKeyState());
         cacheMessage(message, user.pubkey);
         const after = JSON.stringify(cacheKeyState());
@@ -188,6 +198,8 @@ export function useMessaging() {
       recipientPubkey: string;
       content: string;
       attachment?: MessageAttachment;
+      /** Override the user's default message-retention policy. */
+      retention?: MessageRetention;
     }): Promise<boolean> => {
       if (!user) throw new Error('Not logged in');
       const signer = user.signer as unknown as Nip44Signer;
@@ -204,15 +216,22 @@ export function useMessaging() {
           attachment: params.attachment,
         });
 
+        // NIP-40 expiration computed from *now* (wrap timestamps are backdated).
+        const now = Math.floor(Date.now() / 1000);
+        const retention = params.retention ?? loadRetention();
+        const expTag = expirationTag(retention, now);
+        const expiresAt = computeExpiration(retention, now) ?? undefined;
+
         const { toRecipient, toSelf } = await createGiftWraps({
           signer,
           recipientPubkey: params.recipientPubkey,
           rumor,
+          expirationTag: expTag,
         });
 
         // Cache optimistically as "sending" so the UI shows status at once.
         const message: SecureMessage = {
-          ...rumorToMessage(rumor, user.pubkey),
+          ...rumorToMessage(rumor, user.pubkey, expiresAt),
           deliveryStatus: 'sending',
         };
         cacheMessage(message, user.pubkey);

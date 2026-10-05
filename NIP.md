@@ -148,6 +148,27 @@ unacknowledged messages. Incoming receipts flip the matching sent messages
 to a `read` status. Delivery status is local UI state
 (`sending → sent/failed → read`); it is never written to the hash chain.
 
+### Own delivery relays & message retention (Phase VII)
+
+**DM relays (kind 10050).** The professional publishes a NIP-17 DM relay
+list (`relay` tags) via `src/lib/dmRelays` + `useMyRelays` so *senders*
+know exactly where to drop gift wraps for them — the inbound counterpart to
+Phase VI's outbound routing. The list round-trips across devices: on login
+`useMyRelays` loads the published kind-10050 event. The user's NIP-65 list
+(kind 10002) is also editable from the same settings screen and published
+through `useNostrPublish`, keeping `AppContext` (and therefore the pool) in
+sync.
+
+**Message retention (NIP-40).** Outgoing gift wraps may carry an
+`expiration` tag so compliant relays drop them after a deadline
+(`src/lib/messageRetention`). The deadline is computed from *now* (not the
+wrap's backdated `created_at`) and applied to both the recipient and
+self-copy wraps. Locally, expired messages are filtered on load and purged
+from the cache. As with Vault retention, this is honestly framed as data
+minimization, not a security guarantee — NIP-40 permits relays to retain
+events longer. Retention is a persisted default
+(`privatum:messages:retention`) overridable per message in the composer.
+
 ## Verified Contact Discovery (NIP-05) — IMPLEMENTED (Phase V)
 
 So users never paste raw public keys, Privatum resolves professionals and

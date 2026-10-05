@@ -5,7 +5,7 @@ import {
   Inbox, FileText, LinkIcon, Users, Activity, Settings,
   Plus, ChevronRight, Shield, Clock, HardDrive,
   ExternalLink, Download, Eye, Lock, Menu, X,
-  LogOut, User as UserIcon, FolderOpen, MessageSquareLock, BookUser, UserPlus
+  LogOut, User as UserIcon, FolderOpen, MessageSquareLock, BookUser, UserPlus, Radio
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,6 +228,14 @@ const Dashboard = () => {
           >
             <Shield className="size-4" />
             <span>{strings.dashboard.securityCenter}</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
+          <Link
+            to="/relays"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Radio className="size-4" />
+            <span>{strings.relays.title}</span>
             <ChevronRight className="size-3 ml-auto" />
           </Link>
           <button

@@ -19,7 +19,7 @@ import { nip19 } from 'nostr-tools';
 import {
   ArrowLeft, MessageSquareLock, Plus, Send, Loader2, ShieldCheck,
   Paperclip, Lock, Menu, FileText, X, ChevronRight, UserPlus,
-  Check, CheckCheck, AlertCircle, Radio,
+  Check, CheckCheck, AlertCircle, Radio, Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,6 +32,7 @@ import {
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocale } from '@/hooks/useLocale';
@@ -43,6 +44,9 @@ import { useContacts } from '@/hooks/useContacts';
 import { toast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import type { Conversation, MessageAttachment, SecureMessage } from '@/lib/messaging';
+import {
+  loadRetention, saveRetention, RETENTION_OPTIONS, type MessageRetention,
+} from '@/lib/messageRetention';
 
 type LocaleStrings = ReturnType<typeof useLocale>['strings'];
 
@@ -318,6 +322,7 @@ function ThreadView({
   const [draft, setDraft] = useState('');
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [retention, setRetention] = useState<MessageRetention>(loadRetention);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const messages = useMemo(() => conversation?.messages ?? [], [conversation]);
@@ -367,6 +372,7 @@ function ThreadView({
         recipientPubkey: peerPubkey,
         content,
         attachment: attachment ?? undefined,
+        retention,
       });
       setDraft('');
       setAttachment(null);
@@ -509,6 +515,12 @@ function ThreadView({
           >
             <Paperclip className="size-4" />
           </Button>
+          <RetentionControl
+            value={retention}
+            onChange={(r) => { setRetention(r); saveRetention(r); }}
+            disabled={!messaging.canMessage}
+            strings={strings}
+          />
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -535,9 +547,16 @@ function ThreadView({
               : <Send className="size-4" />}
           </Button>
         </div>
-        <p className="mt-1.5 text-[10px] text-muted-foreground flex items-center gap-1">
+        <p className="mt-1.5 text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
           <Lock className="size-2.5" />
           {strings.messages.encryptedNote}
+          {retention !== 'never' && (
+            <>
+              <span>·</span>
+              <Clock className="size-2.5" />
+              {strings.messages.retention}: {retentionLabel(retention, strings)}
+            </>
+          )}
         </p>
       </div>
 
@@ -550,6 +569,69 @@ function ThreadView({
         strings={strings}
       />
     </div>
+  );
+}
+
+// ─── Message retention control (Phase VII) ──────────────────────────
+
+function retentionLabel(r: MessageRetention, strings: LocaleStrings): string {
+  switch (r) {
+    case 'never': return strings.messages.retentionNever;
+    case '24h': return strings.messages.retention24h;
+    case '7d': return strings.messages.retention7d;
+    case '30d': return strings.messages.retention30d;
+    case '90d': return strings.messages.retention90d;
+    case '1y': return strings.messages.retention1y;
+  }
+}
+
+function RetentionControl({
+  value, onChange, disabled, strings,
+}: {
+  value: MessageRetention;
+  onChange: (r: MessageRetention) => void;
+  disabled?: boolean;
+  strings: LocaleStrings;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = value !== 'never';
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className={cn('shrink-0 relative', active && 'text-primary border-primary/40')}
+          disabled={disabled}
+          aria-label={strings.messages.retention}
+        >
+          <Clock className="size-4" />
+          {active && (
+            <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary" aria-hidden />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start" side="top">
+        <p className="px-2 py-1 text-xs font-medium text-foreground">{strings.messages.retention}</p>
+        <p className="px-2 pb-2 text-[10px] text-muted-foreground">{strings.messages.retentionHint}</p>
+        <div className="space-y-0.5">
+          {RETENTION_OPTIONS.map((r) => (
+            <button
+              key={r}
+              onClick={() => { onChange(r); setOpen(false); }}
+              className={cn(
+                'w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-left transition-colors',
+                r === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary/60 text-foreground',
+              )}
+            >
+              {retentionLabel(r, strings)}
+              {r === value && <Check className="size-3.5" />}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

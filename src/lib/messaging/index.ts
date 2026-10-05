@@ -61,6 +61,8 @@ export interface SecureMessage {
   relaySource?: string;
   /** True once this received message has had a read receipt sent back. */
   receiptSent?: boolean;
+  /** NIP-40 expiration (unix seconds); message is hidden/dropped after this. */
+  expiresAt?: number;
 }
 
 /** A reference to an encrypted document shared inside a message. */
@@ -245,7 +247,11 @@ async function sealRumor(
  * Wrap a seal in a gift wrap (kind 1059), encrypted to the recipient and
  * signed by a one-time ephemeral key so the sender is hidden at the relay.
  */
-async function wrapSeal(seal: NostrEvent, recipientPubkey: string): Promise<NostrEvent> {
+async function wrapSeal(
+  seal: NostrEvent,
+  recipientPubkey: string,
+  expirationTag?: string[] | null,
+): Promise<NostrEvent> {
   const ephemeralSk = generateSecretKey();
   const ephemeralPk = getPublicKey(ephemeralSk);
 
@@ -253,11 +259,16 @@ async function wrapSeal(seal: NostrEvent, recipientPubkey: string): Promise<Nost
   const conversationKey = await deriveNip44Key(ephemeralSk, recipientPubkey);
   const encrypted = await nip44EncryptRaw(conversationKey, JSON.stringify(seal));
 
+  const tags: string[][] = [['p', recipientPubkey]];
+  // NIP-40: a relay-visible expiration so compliant relays drop the wrap
+  // after the deadline. Only the recipient `p` tag and this are exposed.
+  if (expirationTag) tags.push(expirationTag);
+
   const wrapTemplate = {
     pubkey: ephemeralPk,
     created_at: randomizedTimestamp(),
     kind: KIND_GIFT_WRAP,
-    tags: [['p', recipientPubkey]],
+    tags,
     content: encrypted,
   };
 
@@ -273,14 +284,16 @@ export async function createGiftWraps(params: {
   signer: Nip44Signer;
   recipientPubkey: string;
   rumor: ChatRumor;
+  /** Optional NIP-40 expiration tag applied to both wraps. */
+  expirationTag?: string[] | null;
 }): Promise<{ toRecipient: NostrEvent; toSelf: NostrEvent }> {
   const senderPubkey = await params.signer.getPublicKey();
 
   const sealForRecipient = await sealRumor(params.signer, params.rumor, params.recipientPubkey);
-  const toRecipient = await wrapSeal(sealForRecipient, params.recipientPubkey);
+  const toRecipient = await wrapSeal(sealForRecipient, params.recipientPubkey, params.expirationTag);
 
   const sealForSelf = await sealRumor(params.signer, params.rumor, senderPubkey);
-  const toSelf = await wrapSeal(sealForSelf, senderPubkey);
+  const toSelf = await wrapSeal(sealForSelf, senderPubkey, params.expirationTag);
 
   return { toRecipient, toSelf };
 }
@@ -330,8 +343,20 @@ export async function unwrapGiftWrap(
   }
 }
 
+/** Read the NIP-40 expiration (unix seconds) from a gift wrap, or undefined. */
+export function giftWrapExpiration(event: NostrEvent): number | undefined {
+  const tag = event.tags.find(([n]) => n === 'expiration');
+  const value = tag?.[1];
+  const num = value ? Number(value) : NaN;
+  return Number.isFinite(num) ? num : undefined;
+}
+
 /** Convert an unwrapped rumor into a SecureMessage for the given viewer. */
-export function rumorToMessage(rumor: ChatRumor, viewerPubkey: string): SecureMessage {
+export function rumorToMessage(
+  rumor: ChatRumor,
+  viewerPubkey: string,
+  expiresAt?: number,
+): SecureMessage {
   const recipients = rumor.tags.filter(([n]) => n === 'p').map(([, v]) => v);
   const attachmentTag = rumor.tags.find(([n]) => n === 'privatum-attachment');
 
@@ -354,6 +379,7 @@ export function rumorToMessage(rumor: ChatRumor, viewerPubkey: string): SecureMe
     recipients,
     attachment,
     direction: rumor.pubkey === viewerPubkey ? 'sent' : 'received',
+    expiresAt,
   };
 }
 
@@ -387,17 +413,37 @@ function peerOf(message: SecureMessage, viewerPubkey: string): string {
 /** Load all cached conversations for the viewer, newest activity first. */
 export function loadConversations(viewerPubkey: string): Conversation[] {
   const store = loadStore();
+  const now = Math.floor(Date.now() / 1000);
   const list: Conversation[] = Object.entries(store).map(([peerPubkey, messages]) => {
-    const sorted = [...messages].sort((a, b) => a.createdAt - b.createdAt);
+    // NIP-40: hide messages past their expiration (data minimization).
+    const live = messages.filter((m) => !(typeof m.expiresAt === 'number' && m.expiresAt <= now));
+    const sorted = live.sort((a, b) => a.createdAt - b.createdAt);
     return {
       peerPubkey,
       messages: sorted,
       lastActivity: sorted.length ? sorted[sorted.length - 1].createdAt : 0,
     };
-  });
+  }).filter((conv) => conv.messages.length > 0);
   // viewerPubkey reserved for future multi-account partitioning
   void viewerPubkey;
   return list.sort((a, b) => b.lastActivity - a.lastActivity);
+}
+
+/** Purge expired messages from the persisted store. Returns true if changed. */
+export function purgeExpiredMessages(): boolean {
+  const store = loadStore();
+  const now = Math.floor(Date.now() / 1000);
+  let changed = false;
+  for (const peer of Object.keys(store)) {
+    const before = store[peer].length;
+    store[peer] = store[peer].filter(
+      (m) => !(typeof m.expiresAt === 'number' && m.expiresAt <= now),
+    );
+    if (store[peer].length !== before) changed = true;
+    if (store[peer].length === 0) delete store[peer];
+  }
+  if (changed) saveStore(store);
+  return changed;
 }
 
 /**

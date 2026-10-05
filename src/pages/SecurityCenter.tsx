@@ -2,7 +2,7 @@ import { useSeoMeta } from '@unhead/react';
 import { Link } from 'react-router-dom';
 import {
   Shield, ShieldCheck, Key, Smartphone, Clock, UserCheck,
-  ChevronRight, ArrowLeft, Check, AlertCircle
+  ChevronRight, ArrowLeft, Check, AlertCircle, Radio
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -134,6 +134,26 @@ const SecurityCenter = () => {
             </Card>
           ))}
         </div>
+
+        {/* Relays & delivery */}
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="font-sans text-base flex items-center gap-2">
+              <Radio className="size-4" />
+              {strings.relays.title}
+            </CardTitle>
+            <CardDescription>{strings.relays.subtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" asChild>
+              <Link to="/relays">
+                <Radio className="size-4 mr-1" />
+                {strings.relays.title}
+                <ChevronRight className="size-3 ml-1" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Recovery section */}
         <Card className="border-border">
