@@ -1,5 +1,5 @@
 /**
- * SECURE MESSAGES — Phase IV.
+ * SECURE MESSAGES — Phase IV + VI.
  *
  * End-to-end encrypted correspondence between a professional and their
  * contacts, built on the NIP-17 sealed-DM pattern (gift-wrapped via
@@ -7,6 +7,9 @@
  * thread on the right. New conversations are started from a recipient's
  * public key (npub or hex). Encrypted Vault documents can be referenced
  * as attachments without exposing their contents.
+ *
+ * Phase VI: sent messages show delivery/read status and the relay route
+ * used; viewing a thread sends encrypted read receipts back to the peer.
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -16,6 +19,7 @@ import { nip19 } from 'nostr-tools';
 import {
   ArrowLeft, MessageSquareLock, Plus, Send, Loader2, ShieldCheck,
   Paperclip, Lock, Menu, FileText, X, ChevronRight, UserPlus,
+  Check, CheckCheck, AlertCircle, Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,6 +31,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocale } from '@/hooks/useLocale';
@@ -37,7 +42,7 @@ import { useVault } from '@/hooks/useVault';
 import { useContacts } from '@/hooks/useContacts';
 import { toast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
-import type { Conversation, MessageAttachment } from '@/lib/messaging';
+import type { Conversation, MessageAttachment, SecureMessage } from '@/lib/messaging';
 
 type LocaleStrings = ReturnType<typeof useLocale>['strings'];
 
@@ -317,11 +322,42 @@ function ThreadView({
 
   const messages = useMemo(() => conversation?.messages ?? [], [conversation]);
 
+  // Most recent sent message's relay route, for the header indicator.
+  const lastSentRoute = useMemo(() => {
+    const lastSent = [...messages].reverse().find(
+      (m) => m.direction === 'sent' && m.relaySource,
+    );
+    if (!lastSent?.relaySource) return null;
+    const label = (() => {
+      switch (lastSent.relaySource) {
+        case 'dm-relays': return strings.messages.routeDmRelays;
+        case 'nip65': return strings.messages.routeNip65;
+        case 'nip05': return strings.messages.routeNip05;
+        default: return strings.messages.routeFallback;
+      }
+    })();
+    return { label, count: lastSent.relayCount };
+  }, [messages, strings]);
+
   // Auto-scroll to newest message.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
+
+  // Phase VI: viewing a thread sends encrypted read receipts back to the
+  // peer for any of their messages we haven't yet acknowledged.
+  const unacked = messages.filter((m) => m.direction === 'received' && !m.receiptSent).length;
+  const { sendReadReceipts, refreshConversations } = messaging;
+  useEffect(() => {
+    if (unacked === 0) return;
+    let cancelled = false;
+    (async () => {
+      await sendReadReceipts(peerPubkey);
+      if (!cancelled) refreshConversations();
+    })();
+    return () => { cancelled = true; };
+  }, [peerPubkey, unacked, sendReadReceipts, refreshConversations]);
 
   const handleSend = async () => {
     const content = draft.trim();
@@ -363,10 +399,30 @@ function ThreadView({
             {nip19.npubEncode(peerPubkey).slice(0, 20)}…
           </p>
         </div>
-        <Badge variant="outline" className="ml-auto gap-1 text-[10px] shrink-0">
-          <ShieldCheck className="size-3 text-green-600" />
-          {strings.messages.deliveredSealed}
-        </Badge>
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          {lastSentRoute && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="gap-1 text-[10px] hidden sm:inline-flex">
+                  <Radio className="size-3 text-primary" />
+                  {lastSentRoute.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="text-xs">
+                  {strings.messages.routedVia} {lastSentRoute.label}
+                  {lastSentRoute.count !== undefined && (
+                    <> · {strings.messages.deliveredTo.replace('{n}', String(lastSentRoute.count))}</>
+                  )}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Badge variant="outline" className="gap-1 text-[10px]">
+            <ShieldCheck className="size-3 text-green-600" />
+            {strings.messages.deliveredSealed}
+          </Badge>
+        </div>
       </div>
 
       {/* Messages */}
@@ -422,6 +478,9 @@ function ThreadView({
               >
                 <Lock className="size-2.5" />
                 <span>{formatTime(msg.createdAt)}</span>
+                {msg.direction === 'sent' && (
+                  <DeliveryStatus message={msg} strings={strings} />
+                )}
               </div>
             </div>
           </div>
@@ -491,6 +550,67 @@ function ThreadView({
         strings={strings}
       />
     </div>
+  );
+}
+
+// ─── Delivery status indicator (Phase VI) ───────────────────────────
+
+function DeliveryStatus({
+  message, strings,
+}: {
+  message: SecureMessage;
+  strings: LocaleStrings;
+}) {
+  const status = message.deliveryStatus ?? 'sent';
+
+  const routeLabel = (() => {
+    switch (message.relaySource) {
+      case 'dm-relays': return strings.messages.routeDmRelays;
+      case 'nip65': return strings.messages.routeNip65;
+      case 'nip05': return strings.messages.routeNip05;
+      default: return strings.messages.routeFallback;
+    }
+  })();
+
+  const icon = (() => {
+    switch (status) {
+      case 'sending':
+        return <Loader2 className="size-2.5 animate-spin" aria-hidden />;
+      case 'failed':
+        return <AlertCircle className="size-2.5 text-red-300" aria-hidden />;
+      case 'read':
+        return <CheckCheck className="size-3 text-sky-300" aria-hidden />;
+      case 'sent':
+      default:
+        return <Check className="size-3" aria-hidden />;
+    }
+  })();
+
+  const label = (() => {
+    switch (status) {
+      case 'sending': return strings.messages.statusSending;
+      case 'failed': return strings.messages.statusFailed;
+      case 'read': return strings.messages.statusRead;
+      default: return strings.messages.statusSent;
+    }
+  })();
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex items-center" aria-label={label}>{icon}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs font-medium">{label}</p>
+        {(status === 'sent' || status === 'read') && message.relayCount !== undefined && (
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {strings.messages.deliveredTo.replace('{n}', String(message.relayCount))}
+            {' · '}
+            {strings.messages.routedVia} {routeLabel}
+          </p>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

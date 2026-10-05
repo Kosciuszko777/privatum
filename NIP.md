@@ -117,6 +117,37 @@ device already decrypted. Every sent/received message is recorded in the
 integrity hash chain on the `messages` channel (metadata only — filename,
 size, and hash; never content).
 
+### Delivery routing & read receipts (Phase VI)
+
+**Targeted delivery.** A gift wrap only reaches a recipient if published to
+a relay they read. `src/lib/relayHints/index.ts` resolves each recipient's
+relays in priority order and we publish their wrap there via
+`nostr.group(...)`:
+
+1. **NIP-17 DM relays** — kind `10050` (`relay` tags).
+2. **NIP-65 relay list** — kind `10002` read relays.
+3. **NIP-05 relay hints** — captured during contact resolution (Phase V).
+4. **Fallback** — the user's own NIP-65 write relays (always unioned in so a
+   tiny/unreachable DM-relay set never strands a message).
+
+The self-copy wrap is published to the user's own write relays. Each sent
+message records how many relays accepted it and which source was used,
+surfaced in the UI as a delivery indicator.
+
+**Read receipts.** A receipt is a kind-14 rumor with empty content and one
+or more `privatum-receipt` tags referencing the acknowledged message ids:
+
+```json
+["privatum-receipt", "<rumor id of the message being acknowledged>"]
+```
+
+It is sealed and gift-wrapped exactly like a normal message (so receipts
+get the same metadata privacy) and sent only to the peer (no self-copy).
+When a thread is viewed, the client sends receipts for the peer's
+unacknowledged messages. Incoming receipts flip the matching sent messages
+to a `read` status. Delivery status is local UI state
+(`sending → sent/failed → read`); it is never written to the hash chain.
+
 ## Verified Contact Discovery (NIP-05) — IMPLEMENTED (Phase V)
 
 So users never paste raw public keys, Privatum resolves professionals and

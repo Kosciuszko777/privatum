@@ -27,6 +27,16 @@ export const KIND_SEAL = 13;
 /** NIP-59 gift wrap kind. */
 export const KIND_GIFT_WRAP = 1059;
 
+/**
+ * Delivery status of a sent message (Phase VI).
+ * - `sending`:   publish in-flight.
+ * - `sent`:      accepted by at least one of the recipient's relays.
+ * - `failed`:    no relay accepted the gift wrap.
+ * - `read`:      recipient returned a read receipt.
+ * Received messages carry no delivery status.
+ */
+export type DeliveryStatus = 'sending' | 'sent' | 'failed' | 'read';
+
 /** A single decrypted message in a conversation. */
 export interface SecureMessage {
   /** Rumor id (deterministic hash of the unsigned rumor). */
@@ -43,6 +53,14 @@ export interface SecureMessage {
   attachment?: MessageAttachment;
   /** Delivery direction relative to the logged-in user. */
   direction: 'sent' | 'received';
+  /** Delivery status (sent messages only). */
+  deliveryStatus?: DeliveryStatus;
+  /** How many relays accepted the gift wrap (sent messages). */
+  relayCount?: number;
+  /** Relay source label for the recipient (sent messages). */
+  relaySource?: string;
+  /** True once this received message has had a read receipt sent back. */
+  receiptSent?: boolean;
 }
 
 /** A reference to an encrypted document shared inside a message. */
@@ -144,6 +162,48 @@ export async function buildChatRumor(params: {
   return { ...base, id };
 }
 
+// ─── Read receipts (Phase VI) ────────────────────────────────────────
+//
+// A read receipt is a kind-14 rumor with empty content and a
+// `privatum-receipt` tag referencing the message id(s) being acknowledged.
+// It travels through the exact same seal + gift-wrap pipeline, so receipts
+// enjoy the same metadata privacy as ordinary messages.
+
+/** Build an unsigned read-receipt rumor acknowledging one or more messages. */
+export async function buildReceiptRumor(params: {
+  senderPubkey: string;
+  recipientPubkey: string;
+  messageIds: string[];
+  createdAt?: number;
+}): Promise<ChatRumor> {
+  const created_at = params.createdAt ?? Math.floor(Date.now() / 1000);
+  const tags: string[][] = [['p', params.recipientPubkey]];
+  for (const id of params.messageIds) {
+    tags.push(['privatum-receipt', id]);
+  }
+
+  const base: Omit<ChatRumor, 'id'> = {
+    pubkey: params.senderPubkey,
+    created_at,
+    kind: KIND_CHAT,
+    tags,
+    content: '',
+  };
+
+  const id = await computeRumorId(base);
+  return { ...base, id };
+}
+
+/** Extract the acknowledged message ids from a rumor, or [] if not a receipt. */
+export function receiptMessageIds(rumor: ChatRumor): string[] {
+  return rumor.tags.filter(([n]) => n === 'privatum-receipt').map(([, v]) => v).filter(Boolean);
+}
+
+/** Is this rumor a read receipt (carries at least one receipt tag)? */
+export function isReceiptRumor(rumor: ChatRumor): boolean {
+  return rumor.tags.some(([n]) => n === 'privatum-receipt');
+}
+
 // ─── Gift wrapping (NIP-59) ──────────────────────────────────────────
 
 /** Random timestamp up to two days in the past, to blur metadata (NIP-59). */
@@ -223,6 +283,19 @@ export async function createGiftWraps(params: {
   const toSelf = await wrapSeal(sealForSelf, senderPubkey);
 
   return { toRecipient, toSelf };
+}
+
+/**
+ * Produce a single gift wrap addressed only to the recipient. Used for read
+ * receipts, which don't need a self-copy (we already know we read them).
+ */
+export async function createRecipientGiftWrap(params: {
+  signer: Nip44Signer;
+  recipientPubkey: string;
+  rumor: ChatRumor;
+}): Promise<NostrEvent> {
+  const seal = await sealRumor(params.signer, params.rumor, params.recipientPubkey);
+  return wrapSeal(seal, params.recipientPubkey);
 }
 
 // ─── Unwrapping (NIP-59) ─────────────────────────────────────────────
@@ -341,6 +414,78 @@ export function cacheMessage(message: SecureMessage, viewerPubkey: string): Conv
   store[peer] = [...existing, message];
   saveStore(store);
   return store;
+}
+
+/**
+ * Patch a cached message in place (by id, across all conversations).
+ * Used to update delivery status, relay reach, and receipt flags.
+ */
+export function updateCachedMessage(
+  messageId: string,
+  patch: Partial<SecureMessage>,
+): void {
+  const store = loadStore();
+  let changed = false;
+  for (const peer of Object.keys(store)) {
+    store[peer] = store[peer].map((m) => {
+      if (m.id !== messageId) return m;
+      changed = true;
+      return { ...m, ...patch };
+    });
+  }
+  if (changed) saveStore(store);
+}
+
+/**
+ * Apply a batch of read receipts: any *sent* message whose id is in
+ * `messageIds` is marked `read`. Returns true if anything changed.
+ */
+export function applyReadReceipts(messageIds: string[]): boolean {
+  if (messageIds.length === 0) return false;
+  const ids = new Set(messageIds);
+  const store = loadStore();
+  let changed = false;
+  for (const peer of Object.keys(store)) {
+    store[peer] = store[peer].map((m) => {
+      if (m.direction === 'sent' && ids.has(m.id) && m.deliveryStatus !== 'read') {
+        changed = true;
+        return { ...m, deliveryStatus: 'read' as DeliveryStatus };
+      }
+      return m;
+    });
+  }
+  if (changed) saveStore(store);
+  return changed;
+}
+
+/**
+ * Received messages in a conversation that have not yet had a read receipt
+ * sent. Returns their rumor ids (which the sender can match to its own
+ * sent-message ids).
+ */
+export function unacknowledgedReceivedIds(peerPubkey: string): string[] {
+  const store = loadStore();
+  const messages = store[peerPubkey] ?? [];
+  return messages
+    .filter((m) => m.direction === 'received' && !m.receiptSent)
+    .map((m) => m.id);
+}
+
+/** Mark received messages as having had a read receipt sent. */
+export function markReceiptsSent(messageIds: string[]): void {
+  const ids = new Set(messageIds);
+  const store = loadStore();
+  let changed = false;
+  for (const peer of Object.keys(store)) {
+    store[peer] = store[peer].map((m) => {
+      if (m.direction === 'received' && ids.has(m.id) && !m.receiptSent) {
+        changed = true;
+        return { ...m, receiptSent: true };
+      }
+      return m;
+    });
+  }
+  if (changed) saveStore(store);
 }
 
 /** Remove all cached conversations (used by panic-delete). */
