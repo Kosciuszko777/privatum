@@ -10,12 +10,12 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { nip19 } from 'nostr-tools';
 import {
   ArrowLeft, MessageSquareLock, Plus, Send, Loader2, ShieldCheck,
-  Paperclip, Lock, Menu, FileText, X,
+  Paperclip, Lock, Menu, FileText, X, ChevronRight, UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +34,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useMessaging } from '@/hooks/useMessaging';
 import { useVault } from '@/hooks/useVault';
+import { useContacts } from '@/hooks/useContacts';
 import { toast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import type { Conversation, MessageAttachment } from '@/lib/messaging';
@@ -62,6 +63,7 @@ const Messages = () => {
   const { strings } = useLocale();
   const { user } = useCurrentUser();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const messaging = useMessaging();
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
@@ -71,6 +73,17 @@ const Messages = () => {
     title: `PRIVATUM — ${strings.messages.title}`,
     description: strings.messages.subtitle,
   });
+
+  // Deep-link: /messages?to=<hex pubkey> opens that conversation.
+  useEffect(() => {
+    const to = searchParams.get('to');
+    if (to && /^[0-9a-f]{64}$/i.test(to)) {
+      setActivePeer(to.toLowerCase());
+      setSidebarOpen(false);
+      searchParams.delete('to');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Redirect if not logged in.
   useEffect(() => {
@@ -491,6 +504,8 @@ function NewConversationDialog({
   onStart: (pubkey: string) => void;
   strings: LocaleStrings;
 }) {
+  const navigate = useNavigate();
+  const { contacts } = useContacts();
   const [value, setValue] = useState('');
   const [error, setError] = useState(false);
 
@@ -512,8 +527,41 @@ function NewConversationDialog({
           <DialogTitle className="font-serif">{strings.messages.newConversation}</DialogTitle>
           <DialogDescription>{strings.messages.encryptedNote}</DialogDescription>
         </DialogHeader>
+
+        {/* Pick from saved contacts */}
+        {contacts.length > 0 && (
+          <div className="space-y-2">
+            <Label>{strings.contacts.pickContact}</Label>
+            <div className="max-h-52 overflow-y-auto -mx-1 px-1 space-y-1">
+              {contacts.map((contact) => (
+                <button
+                  key={contact.pubkey}
+                  onClick={() => onStart(contact.pubkey)}
+                  className="w-full flex items-center gap-3 p-2 rounded-lg text-left hover:bg-secondary/60 transition-colors"
+                >
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarImage src={contact.picture} alt={contact.name} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-serif font-bold text-xs">
+                      {initialsFromName(contact.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{contact.name}</p>
+                    {contact.nip05 && (
+                      <p className="text-xs text-primary font-mono truncate">{contact.nip05}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="recipient-key">{strings.messages.recipientKey}</Label>
+          <Label htmlFor="recipient-key">
+            {contacts.length > 0 ? strings.contacts.orEnterKey : strings.messages.recipientKey}
+          </Label>
           <Input
             id="recipient-key"
             value={value}
@@ -527,13 +575,24 @@ function NewConversationDialog({
             <p className="text-xs text-destructive">{strings.messages.invalidKey}</p>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {strings.common.cancel}
+
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => { onOpenChange(false); navigate('/directory'); }}
+            className="text-muted-foreground"
+          >
+            <UserPlus className="size-4 mr-1" />
+            {strings.contacts.addContact}
           </Button>
-          <Button onClick={handleStart} disabled={!value.trim()}>
-            {strings.messages.startConversation}
-          </Button>
+          <div className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {strings.common.cancel}
+            </Button>
+            <Button onClick={handleStart} disabled={!value.trim()}>
+              {strings.messages.startConversation}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

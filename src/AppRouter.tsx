@@ -16,6 +16,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Vault = lazy(() => import("./pages/Vault"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Messages = lazy(() => import("./pages/Messages"));
+const Directory = lazy(() => import("./pages/Directory"));
 
 export function AppRouter() {
   return (
@@ -32,6 +33,7 @@ export function AppRouter() {
         <Route path="/vault" element={<Vault />} />
         <Route path="/audit" element={<AuditLog />} />
         <Route path="/messages" element={<Messages />} />
+        <Route path="/directory" element={<Directory />} />
         {/* Secure upload — permanent inbox */}
         <Route path="/inbox/:handle" element={<SecureUpload />} />
         {/* Secure upload — per-link */}

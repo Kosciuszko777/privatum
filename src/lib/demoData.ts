@@ -404,6 +404,80 @@ export const demoVaultDocuments: DemoVaultDocument[] = [
   },
 ];
 
+// ─── Directory demo data (Phase V) ───────────────────────────────────
+
+export interface DirectoryProfessional {
+  /** NIP-05 identifier used to resolve + message them. */
+  nip05: string;
+  name: string;
+  title: string;
+  jurisdiction: string;
+  vertical: 'lawyers' | 'healthcare' | 'psychotherapy' | 'fiduciary' | 'notaries' | 'wealth';
+  verified: 'self-declared' | 'domain-verified' | 'register-verified';
+  verificationSource?: string;
+}
+
+/**
+ * A curated set of register-verified professionals shown in the public
+ * directory. These are illustrative Swiss personas; resolving them performs
+ * a real NIP-05 lookup against the listed domain.
+ */
+export const demoDirectory: DirectoryProfessional[] = [
+  {
+    nip05: 'anna@meier-law.ch',
+    name: 'Dr. Anna Meier',
+    title: 'Rechtsanwältin / Attorney at Law',
+    jurisdiction: 'Zürich, Schweiz',
+    vertical: 'lawyers',
+    verified: 'register-verified',
+    verificationSource: 'Zürcher Anwaltsverband',
+  },
+  {
+    nip05: 'laura@praxis-furrer.ch',
+    name: 'Dr. med. Laura Furrer',
+    title: 'Fachärztin für Psychiatrie und Psychotherapie',
+    jurisdiction: 'Bern, Schweiz',
+    vertical: 'psychotherapy',
+    verified: 'domain-verified',
+    verificationSource: 'praxis-furrer.ch',
+  },
+  {
+    nip05: 'info@treuhand-gasser.ch',
+    name: 'Treuhand Gasser',
+    title: 'Fiduciaria / Treuhandgesellschaft',
+    jurisdiction: 'Lugano, Svizzera',
+    vertical: 'fiduciary',
+    verified: 'self-declared',
+  },
+  {
+    nip05: 'weber@weber-partner.ch',
+    name: 'RA Lukas Weber',
+    title: 'Rechtsanwalt, Kanzlei Weber & Partner',
+    jurisdiction: 'Basel, Schweiz',
+    vertical: 'lawyers',
+    verified: 'register-verified',
+    verificationSource: 'Advokatenkammer Basel',
+  },
+  {
+    nip05: 'notariat@brunner-notare.ch',
+    name: 'Notariat Brunner',
+    title: 'Notar / Beurkundungen',
+    jurisdiction: 'Luzern, Schweiz',
+    vertical: 'notaries',
+    verified: 'register-verified',
+    verificationSource: 'Notariatsinspektorat Luzern',
+  },
+  {
+    nip05: 'kontakt@alpenwealth.ch',
+    name: 'AlpenWealth AG',
+    title: 'Vermögensverwaltung / Wealth Management',
+    jurisdiction: 'Zug, Schweiz',
+    vertical: 'wealth',
+    verified: 'domain-verified',
+    verificationSource: 'alpenwealth.ch',
+  },
+];
+
 export const demoAccessGrants: DemoAccessGrant[] = [
   {
     id: 'ag-001',

@@ -5,7 +5,7 @@ import {
   Inbox, FileText, LinkIcon, Users, Activity, Settings,
   Plus, ChevronRight, Shield, Clock, HardDrive,
   ExternalLink, Download, Eye, Lock, Menu, X,
-  LogOut, User as UserIcon, FolderOpen, MessageSquareLock
+  LogOut, User as UserIcon, FolderOpen, MessageSquareLock, BookUser, UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useVault } from '@/hooks/useVault';
 import { useAuditChain } from '@/hooks/useAuditChain';
+import { useContacts } from '@/hooks/useContacts';
 import {
   annaMeier,
   demoDeliveries,
@@ -43,6 +44,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const vault = useVault();
   const auditChain = useAuditChain();
+  const { contacts } = useContacts();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moveToVaultDelivery, setMoveToVaultDelivery] = useState<DemoDelivery | null>(null);
@@ -186,6 +188,14 @@ const Dashboard = () => {
           >
             <MessageSquareLock className="size-4" />
             <span>{strings.dashboard.messages}</span>
+            <ChevronRight className="size-3 ml-auto" />
+          </Link>
+          <Link
+            to="/directory"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <BookUser className="size-4" />
+            <span>{strings.contacts.title}</span>
             <ChevronRight className="size-3 ml-auto" />
           </Link>
           <Link
@@ -670,20 +680,72 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Contacts placeholder */}
+          {/* Contacts — trusted directory */}
           {activeTab === 'contacts' && (
-            <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
-              <h2 className="text-xl font-serif font-semibold text-foreground mb-4">
-                {strings.dashboard.contacts}
-              </h2>
-              <Card className="border-dashed border-border">
-                <CardContent className="py-16 px-8 text-center">
-                  <UserIcon className="size-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    {strings.dashboard.noItems}
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-serif font-semibold text-foreground">
+                  {strings.dashboard.contacts}
+                </h2>
+                <Button size="sm" asChild>
+                  <Link to="/directory">
+                    <BookUser className="size-4 mr-1" />
+                    {strings.contacts.title}
+                  </Link>
+                </Button>
+              </div>
+
+              {contacts.length === 0 ? (
+                <Card className="border-dashed border-border">
+                  <CardContent className="py-16 px-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3">
+                      <UserIcon className="size-5 text-muted-foreground" />
+                    </div>
+                    <p className="font-medium text-foreground mb-1">{strings.contacts.noContacts}</p>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+                      {strings.contacts.noContactsDesc}
+                    </p>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/directory">
+                        <UserPlus className="size-4 mr-1" />
+                        {strings.contacts.addContact}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {contacts.map((contact) => (
+                    <Card key={contact.pubkey} className="border-border">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Avatar className="size-10 shrink-0">
+                          <AvatarImage src={contact.picture} alt={contact.name} />
+                          <AvatarFallback className="bg-primary/10 text-primary font-serif font-bold text-xs">
+                            {contact.name.split(/\s+/).map((n) => n.charAt(0)).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-foreground truncate">{contact.name}</span>
+                            {contact.verificationTier && (
+                              <VerificationBadge tier={contact.verificationTier} size="sm" />
+                            )}
+                          </div>
+                          {contact.nip05 && (
+                            <p className="text-xs text-primary font-mono truncate">{contact.nip05}</p>
+                          )}
+                        </div>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to={`/messages?to=${contact.pubkey}`}>
+                            <MessageSquareLock className="size-4 sm:mr-1" />
+                            <span className="hidden sm:inline">{strings.contacts.message}</span>
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

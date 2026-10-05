@@ -117,6 +117,33 @@ device already decrypted. Every sent/received message is recorded in the
 integrity hash chain on the `messages` channel (metadata only — filename,
 size, and hash; never content).
 
+## Verified Contact Discovery (NIP-05) — IMPLEMENTED (Phase V)
+
+So users never paste raw public keys, Privatum resolves professionals and
+clients by DNS-based identifier (NIP-05). See `src/lib/nip05/index.ts` and
+`src/lib/contacts/index.ts`.
+
+- **Resolution:** `name@domain` → GET `https://<domain>/.well-known/nostr.json?name=<local>`.
+  Redirects are refused per NIP-05. Direct fetch is attempted first; on
+  CORS/network failure we retry through the configured CORS proxy. A bare
+  `@domain` / `domain` is treated as the root identifier `_@domain`.
+- **Reverse check:** after resolving, we fetch the pubkey's kind-0 and
+  confirm its `nip05` field points back at the same identifier before
+  marking the contact `nip05Verified`. When a user pastes an npub/hex, we
+  still resolve any advertised `nip05` to display a verified identifier.
+- **Primary reference is the pubkey.** The stored contact is keyed by hex
+  pubkey and never silently re-pointed if the domain later maps the name to
+  a different key (NIP-05 §"Clients must always follow public keys"). The
+  NIP-05 string is kept only as a display/verification hint.
+- **Trust display:** verification tier comes from the Privatum kind-0
+  extension (`privatum_verification_tier`) and is shown with the existing
+  `VerificationBadge`. Relay hints from the NIP-05 `relays` map are stored
+  for future targeted delivery.
+
+Contacts live in `privatum:contacts` (localStorage) and feed the directory,
+the Dashboard contacts tab, and the secure-messaging recipient picker. No
+new event kind is introduced — discovery is pure NIP-05 + kind 0.
+
 ## Storage Layer
 
 Documents are NOT stored as Nostr events. Nostr events only coordinate
